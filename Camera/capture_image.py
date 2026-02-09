@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
-import time
+from time import sleep
 
 while True:
     os.system("scp pi@snorlax:/home/pi/test*.jpg ~/Desktop/captures")
-    time.sleep(30)
+    sleep(30)
