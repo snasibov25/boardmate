@@ -4,3 +4,4 @@ import time
 
 while True:
     os.system("scp pi@snorlax:/home/pi/test*.jpg ~/Desktop/captures")
+    time.sleep(30)
