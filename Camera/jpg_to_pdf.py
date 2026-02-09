@@ -2,6 +2,7 @@ from PIL import Image
 import glob
 import os
 import sys
+import cv2
 
 if len(sys.argv) != 2:
         print("Incorrect input")
@@ -22,20 +23,24 @@ for thejpg in the_jpg_files:
         with Image.open(thejpg) as image:
                 images.append(image.convert("RGB"))
 
-the_total_width = 0
-max_height = 0
+opencv_images = []
 
-for img in images:
-        the_total_width = the_total_width + img.size[0]
-        if img.size[1] > max_height:
-                max_height = img.size[1]
+for the_jpg in the_jpg_files:
+        img = cv2.imread(thejpg)
+        if img is None:
+                print("Can't read")
+                sys.exit(1)
+        opencv_images.append(img)
+        
 
-the_full_slide = Image.new("RGB", (the_total_width, max_height), "white")
+the_stitcher = cv2.Stitcher_create()
+status, stitched = the_stitcher.stitch(opencv_images)
 
-x = 0
-for img in images:
-        the_full_slide.paste(img, (x,0))
-        x = x + img.size[0]
+if status != cv2.Stitcher_OK:
+        sys.exit(1)
+
+stitched_rgb = cv2.cvtColor(stitched, cv2.COLOR_BGR2RGB)
+the_full_slide = Image.fromarray(stitched_rgb)
         
 the_full_slide.save("TheWhiteboardNotes.pdf")
 
