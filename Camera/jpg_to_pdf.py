@@ -43,5 +43,6 @@ stitched_rgb = cv2.cvtColor(stitched, cv2.COLOR_BGR2RGB)
 the_full_slide = Image.fromarray(stitched_rgb)
         
 the_full_slide.save("TheWhiteboardNotes.pdf")
+print("finished")
 
 # To run this, go on terminal and write ' python3 <the location of where you stored this python file>  <the location of the folder of jpg files that you want to convert into a single pdf> ', don't add <> in the command 
