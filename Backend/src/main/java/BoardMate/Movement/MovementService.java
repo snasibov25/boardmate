@@ -1,7 +1,7 @@
 package BoardMate.Movement;
 
 import BoardMate.Movement.MovementRequest;
-import BoardMate.Data.MovementResponse;
+import BoardMate.Movement.MovementResponse;
 import org.springframework.stereotype.Service;
 
 @Service
