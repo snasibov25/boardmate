@@ -1,5 +1,5 @@
-import image_f95437852cdfe061cbe90e020d16e36416f39adf from "figma:asset/f95437852cdfe061cbe90e020d16e36416f39adf.png";
-import image_15c83c0263c2fd68b83c830d75dde639aa8a736e from "figma:asset/15c83c0263c2fd68b83c830d75dde639aa8a736e.png";
+import logo from "./assets/BigBoardMateLogo.png";
+import  smalllogo from "./assets/SmallBoardMateLogo.png";
 import { useState } from "react";
 import { RobotControls } from "./components/RobotControls";
 import { CameraView } from "./components/CameraView";
@@ -133,7 +133,7 @@ export default function App() {
           <div className="flex items-center gap-3">
             <img
               src={
-                image_f95437852cdfe061cbe90e020d16e36416f39adf
+                logo
               }
               alt="BoardMate Logo"
               className="size-8"
