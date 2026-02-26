@@ -1,5 +1,6 @@
 #BoardMate
 
+#Software team
 ##Demo 2
 - web UI design
 - scanning and image processing
