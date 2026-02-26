@@ -7,6 +7,7 @@ from time import sleep
 
 for i in range(5):
     sleep(1)
-    os.system("libcamera-still --nopreview -o test_{0}.jpg".format(i))
+    os.system(f"ssh -XC pi@snorlax 'libcamera-still --nopreview -o test{i}.jpg'")
+    
     
     

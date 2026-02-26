@@ -2,6 +2,8 @@ from pathlib import Path
 import os
 from time import sleep
 
-while True:
-    os.system("scp pi@snorlax:/home/pi/test*.jpg ~/Desktop/captures")
-    sleep(30)
+for i in range(5):
+    os.system("scp pi@snorlax:/home/pi/test{0}.jpg ~/Desktop/captures".format(i))
+    sleep(1)
+    if i >= 5:
+        break
