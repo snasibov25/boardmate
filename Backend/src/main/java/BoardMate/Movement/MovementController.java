@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/robot")
-@CrossOrigin(origins = "http://localhost:5173")
 public class MovementController {
 
     private final MovementService movementService;
