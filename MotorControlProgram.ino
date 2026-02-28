@@ -6,6 +6,9 @@
 #define MS2 5
 #define MS3 6
 #define EN 7
+#define keepAlivePin 12
+
+
 //Declare variables for functions
 char user_input;
 int i;
@@ -19,6 +22,21 @@ bool l = LOW;
 bool r = HIGH;
 int pos[2] = {0, 0};
 
+//dual button pin declaration
+const int button1 = A0;  // SIG1
+const int button2 = A1;  // SIG2
+
+//emergency stop 
+const int emergencyReset = SCL; 
+
+//keeping power bank on
+const unsigned long pulseInterval = 3000; // pulse every 3 seconds
+const unsigned long pulseLength = 200;    // pulse duration in ms
+
+unsigned long lastPulseTime = 0;
+bool pulseState = LOW;
+
+
 void setup() {
   // put your setup code here, to run once:
   pinMode(stpX, OUTPUT);
@@ -29,14 +47,23 @@ void setup() {
   pinMode(MS2, OUTPUT);
   pinMode(MS3, OUTPUT);
   pinMode(EN, OUTPUT);
+  pinMode(keepAlivePin, OUTPUT);
+  
+
+  //assigning input to buttons
+  pinMode(button1, INPUT);
+  pinMode(button2, INPUT);
+
+  pinMode(emergencyReset, INPUT_PULLUP);  // connect button to GND
+
   
   resetBEDPins(); //Set step, direction, microstep and enable pins to default states
   Serial.begin(9600);
   Serial.println("Motor Control Program v0.2");
   Serial.println("");
   Serial.println("Enter Control Option:");
-  Serial.println("    1: Demo 2 Code - XY Movement");
-  Serial.println("    2: Simple Dual Motor Movement Test");
+  Serial.println("    1: Demo 2 Code - XY Movement: Press Green");
+  Serial.println("    2: Simple Dual Motor Movement Test: Press Red");
   Serial.println("");
 }
 
@@ -50,7 +77,55 @@ void resetBEDPins() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+  if (digitalRead(emergencyReset) == LOW) {
+      resetBEDPins();          // disable motors immediately
+      asm volatile ("jmp 0");  // software reset (restarts Arduino)
+  } 
+
+
+
+  int state1 = digitalRead(button1);
+  int state2 = digitalRead(button2);
+
+  //this 4 lines keeps the powerbank from turning off by pulsing a digital signal
+  unsigned long currentMillis = millis();
+
+  // Check if it's time to pulse
+  if (!pulseState && currentMillis - lastPulseTime >= pulseInterval) {
+    digitalWrite(keepAlivePin, HIGH);  // start pulse
+    pulseState = true;
+    lastPulseTime = currentMillis;
+  }
+
+  // Check if pulse duration elapsed
+  if (pulseState && currentMillis - lastPulseTime >= pulseLength) {
+    digitalWrite(keepAlivePin, LOW);   // end pulse
+    pulseState = false;
+    lastPulseTime = currentMillis;
+  }
+
+  if (state1 == LOW) {
+    
+    
+    digitalWrite(EN, LOW);   // enable motors
+    Serial.println("Button 1 pressed");
+    demo();
+    resetBEDPins();
+
+    while(digitalRead(button1) == LOW) {
+      delay(10); }
+  }
+
+  if (state2 == LOW) {
+    
+    digitalWrite(EN, LOW);   // enable motors
+    motorTest();
+    Serial.println("Button 2 pressed");
+    resetBEDPins();
+
+    while(digitalRead(button2) == LOW) {
+      delay(10); }
+  }
   
   
   while(Serial.available()){
