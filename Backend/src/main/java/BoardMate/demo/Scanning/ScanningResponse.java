@@ -1,4 +1,4 @@
-package BoardMate.Scanning;
+package BoardMate.demo.Scanning;
 
 public class ScanningResponse {
     private boolean success;

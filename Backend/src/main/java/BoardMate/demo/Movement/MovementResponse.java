@@ -1,4 +1,4 @@
-package BoardMate.Movement;
+package BoardMate.demo.Movement;
 
 public class MovementResponse {
     private boolean success;       // Whether the command succeeded

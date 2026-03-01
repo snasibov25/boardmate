@@ -1,4 +1,4 @@
-package BoardMate.Erasing;
+package BoardMate.demo.Erasing;
 
 public class ErasingResponse {
 }

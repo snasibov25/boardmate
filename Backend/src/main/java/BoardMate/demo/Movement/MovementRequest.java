@@ -1,4 +1,4 @@
-package BoardMate.Movement;
+package BoardMate.demo.Movement;
 
 /**
  * Represents a movement request for the robot stepper motor.

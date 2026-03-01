@@ -1,4 +1,4 @@
-package BoardMate.Scanning;
+package BoardMate.demo.Scanning;
 
 import org.springframework.web.bind.annotation.*;
 
