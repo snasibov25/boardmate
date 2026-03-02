@@ -16,12 +16,18 @@ public class SerialService {
 
     @PostConstruct
     public void init() throws Exception {
-        port = SerialPort.getCommPort("COM7");
-        port.setBaudRate(9600);
-        port.openPort();
-        in = port.getInputStream();
-        out = port.getOutputStream();
-        Thread.sleep(2000);
+        try {
+            port = SerialPort.getCommPort("COM7");
+            port.setBaudRate(9600);
+            port.openPort();
+            in = port.getInputStream();
+            out = port.getOutputStream();
+            Thread.sleep(2000);
+            
+        } catch (Exception e) {
+            System.out.println("Failed to initialize serial port: " + e.getMessage());
+        }
+        
     }
 
     /**

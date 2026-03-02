@@ -16,6 +16,7 @@ import java.util.*;
 public class PdfController {
 
     private final Path pdfDir = Paths.get(System.getProperty("user.dir"))
+            .getParent()
             .resolve("Camera")
             .resolve("SavedPDF");
 
