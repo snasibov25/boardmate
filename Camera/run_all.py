@@ -1,5 +1,4 @@
 import os
-
 os.system("python3 ConnectToCamera.py")
 os.system("python3 capture_image.py")
 os.system("python3 PDF.py")
