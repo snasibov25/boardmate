@@ -104,60 +104,20 @@ export function PDFViewer({ documents, onDelete, onDownload }: PDFViewerProps) {
         </div>
 
         {/* PDF Preview */}
-        <div className="flex-1 border rounded-lg flex flex-col">
-          {selectedDoc ? (
-            <>
-              <div className="p-3 border-b flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm truncate">{selectedDoc.name}</p>
-                  <p className="text-xs text-gray-500">
-                    Page {currentPage} of {selectedDoc.pages}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="size-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setCurrentPage(Math.min(selectedDoc.pages, currentPage + 1))}
-                    disabled={currentPage === selectedDoc.pages}
-                  >
-                    <ChevronRight className="size-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="flex-1 p-4 bg-gray-50 flex items-center justify-center">
-                {/* Simulated PDF page - in production, use react-pdf's Document and Page components */}
-                <div className="bg-white shadow-lg p-8 rounded" style={{ aspectRatio: "8.5/11", height: "90%" }}>
-                  <div className="space-y-4">
-                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                    <div className="h-4 bg-gray-200 rounded w-full"></div>
-                    <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-                    <div className="h-4 bg-gray-200 rounded w-full"></div>
-                    <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-                    <div className="mt-8 text-center text-gray-400 text-sm">
-                      PDF Preview - Page {currentPage}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-500">
-              <div className="text-center">
-                <FileText className="size-16 mx-auto mb-4 opacity-50" />
-                <p>Select a document to preview</p>
-              </div>
-            </div>
-          )}
-        </div>
+        
+        
+        {selectedDoc ? (
+          <div className="flex-1 bg-gray-50">
+            <iframe
+              key={`${selectedDoc.id}-${currentPage}`}
+              src={`${selectedDoc.url}#page=${currentPage}`}
+              title="PDF Preview"
+              className="w-full h-full"
+            />
+          </div>
+        ) : (
+          <div> Select a document to preview </div>
+        )}
       </CardContent>
     </Card>
   );
