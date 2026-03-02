@@ -42,8 +42,8 @@ export default function App() {
   >([
     {
       id: "1",
-      name: "Whiteboard_Scan_2026-02-18_09-30.pdf",
-      url: "#",
+      name: "output.pdf",
+      url: "http://localhost:8080/api/pdf/latest",
       date: new Date(2026, 1, 18, 9, 30),
       pages: 1,
     },
@@ -76,7 +76,7 @@ export default function App() {
         const newScan: PDFDocument = {
           id: Date.now().toString(),
           name: `Whiteboard_Scan_${new Date().toISOString().split("T")[0]}_${new Date().toTimeString().split(" ")[0].replace(/:/g, "-")}.pdf`,
-          url: "#",
+          url: "http://localhost:8080/api/pdf/latest",
           date: new Date(),
           pages: 1,
         };

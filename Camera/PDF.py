@@ -1,11 +1,18 @@
 import os
 import PIL.Image as Image
+from pathlib import Path
 
-IMAGES_PATH = "/afs/inf.ed.ac.uk/user/s25/s2563745/Desktop/captures"         
+BASE_DIR = Path(__file__).resolve().parent
+IMAGES_PATH = BASE_DIR / "Image"
+PDF_DIR = BASE_DIR / "SavedPDF"
+PDF_DIR.mkdir(parents=True, exist_ok=True)
+
+IMAGE_SAVE_PATH = PDF_DIR / "output.pdf"     
+
 IMAGES_FORMAT = ['.jpg']          
 IMAGE_SIZE = 256                         
 IMAGE_COLUMN = 3                          
-IMAGE_SAVE_PATH = "/afs/inf.ed.ac.uk/user/s25/s2563745/Desktop/output.pdf"  
+
 
 image_names = sorted([
     name for name in os.listdir(IMAGES_PATH)])

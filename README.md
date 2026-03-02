@@ -1,13 +1,13 @@
-#BoardMate
+# BoardMate
 
-#Software team
+# Software team
 
-##Demo 2
+## Demo 2
 - web UI design
 - scanning and image processing
 - idea for Hardware–Software Integration
 
-##Hardware–Software Integration
+## Hardware–Software Integration
 - Detect if motor is stuck or unresponsive
 - Trigger retake or pause cleaning if motor fault is detected
 - Document must be confirmed saved before cleaning can be triggered
