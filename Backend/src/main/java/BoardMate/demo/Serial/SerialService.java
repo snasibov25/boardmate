@@ -11,8 +11,8 @@ import java.io.OutputStream;
 public class SerialService {
 
     private SerialPort port;
-    private static InputStream in;
-    private static OutputStream out;
+    private InputStream in;
+    private OutputStream out;
 
     @PostConstruct
     public void init() throws Exception {
@@ -27,19 +27,18 @@ public class SerialService {
     /**
      * Send a command to Arduino and wait for "OK"
      */
-    public static synchronized boolean sendCommand(String command) throws Exception {
+    public synchronized boolean sendCommand(String command) throws Exception {
+
         if (out == null) return false;
 
-        // 清空缓冲区旧数据，防止干扰
         while (in.available() > 0) in.read();
 
-        // 发送命令
         out.write((command + "\n").getBytes());
         out.flush();
 
         StringBuilder sb = new StringBuilder();
         long startTime = System.currentTimeMillis();
-        long timeout = 5000; // 设置 5 秒超时，防止死循环
+        long timeout = 5000;
 
         while (System.currentTimeMillis() - startTime < timeout) {
             if (in.available() > 0) {
@@ -47,8 +46,9 @@ public class SerialService {
                 if (c == '\n') {
                     String reply = sb.toString().trim();
                     sb.setLength(0);
-                    // 打印日志方便调试
+
                     System.out.println("Arduino Reply: " + reply);
+
                     if (reply.contains("OK")) return true;
                 } else {
                     sb.append(c);
@@ -56,6 +56,7 @@ public class SerialService {
             }
             Thread.sleep(10);
         }
+
         System.err.println("TIMEOUT: Arduino failed to respond OK for command: " + command);
         return false;
     }

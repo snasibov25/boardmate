@@ -1,6 +1,17 @@
+import React, { useState } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { Eraser, ScanLine, PenTool, Power, Pause, Play, ArrowLeftRight, ArrowUpDown, Beaker, PlayCircle, ShieldCheck } from "lucide-react";
+import {
+    Eraser,
+    ScanLine,
+    PenTool,
+    Power,
+    Pause,
+    Play,
+    Beaker,
+    PlayCircle,
+    ShieldCheck
+} from "lucide-react";
 import { Badge } from "./ui/badge";
 import { toast } from "sonner";
 
@@ -14,65 +25,76 @@ interface RobotControlsProps {
     onStatusChange: (status: RobotStatus) => void;
 }
 
-export function RobotControls({ mode, status, onModeChange, onStatusChange }: RobotControlsProps) {
+export default function RobotControls({ mode, status, onModeChange, onStatusChange }: RobotControlsProps) {
+    const [moveDirection, setMoveDirection] = useState<"u" | "d" | "r" | "l">("u");
+    const [moveSteps, setMoveSteps] = useState<number | "">("");
+    const [gotoX, setGotoX] = useState<number | "">("");
+    const [gotoY, setGotoY] = useState<number | "">("");
 
-    const sendCommand = async (endpoint: string, successMsg: string, updateStatus?: RobotStatus) => {
+    const sendCommand = async (command: string, successMsg?: string, updateStatus?: RobotStatus) => {
         try {
-            const response = await fetch(`http://localhost:8080/api/robot/${endpoint}`, {
+            const response = await fetch("http://localhost:8080/api/robot/commands", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ command }),
             });
 
             if (response.ok) {
-                toast.success(successMsg);
+                if (successMsg) toast.success(successMsg);
                 if (updateStatus) onStatusChange(updateStatus);
             } else {
-                toast.error(`Failed: ${endpoint}`);
+                toast.error(`Command failed: ${command}`);
             }
         } catch (error) {
             toast.error("Network connection error");
         }
     };
 
-    const handleMove = async (axis: "X" | "Y", distance: number) => {
-        const endpoint = axis === "X" ? "MoveInXaxis" : "MoveInYaxis";
-        const defaultPins = { stepPin: 0, dirPin: 0, ms1Pin: 0, ms2Pin: 0, ms3Pin: 0, enPin: 0 };
-
-        const movementData = axis === "X"
-            ? { ...defaultPins, stepPin: 2, dirPin: 3, steps: distance * 50 }
-            : { ...defaultPins, stepPin: 8, dirPin: 9, steps: distance * 50 };
-
-        try {
-            const response = await fetch(`http://localhost:8080/api/robot/${endpoint}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ...movementData, direction: distance > 0, enable: true }),
-            });
-            if (response.ok) toast.success(`${axis}-axis moved ${distance}mm`);
-        } catch (error) {
-            toast.error("Network error");
+    const handleMove = () => {
+        if (!moveSteps || isNaN(Number(moveSteps))) {
+            toast.error("Please enter valid steps");
+            return;
         }
+        const command = `move ${moveDirection} ${moveSteps}`;
+        sendCommand(command, `Move command sent: ${moveDirection} ${moveSteps}`);
+    };
+
+    const handleGoto = () => {
+        if (isNaN(Number(gotoX)) || isNaN(Number(gotoY))) {
+            toast.error("Please enter valid coordinates");
+            return;
+        }
+        const command = `goto ${gotoX} ${gotoY}`;
+        sendCommand(command, `Moving to (${gotoX}, ${gotoY})`);
     };
 
     return (
-        <Card>
-            <CardHeader>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <CardTitle>Robot Controls</CardTitle>
-                        <CardDescription>Control the BoardMate system and run routines</CardDescription>
-                    </div>
-                    <Badge className={status === "active" ? "bg-green-500" : status === "paused" ? "bg-yellow-500" : "bg-gray-500"}>
-                        {status.toUpperCase()}
-                    </Badge>
+        <Card className="space-y-4">
+            {/* Header + Status */}
+            <CardHeader className="flex items-center justify-between">
+                <div>
+                    <CardTitle>Robot Controls</CardTitle>
+                    <CardDescription>Control the BoardMate system</CardDescription>
                 </div>
+                <Badge
+                    className={`px-3 py-1 rounded-full ${
+                        status === "active"
+                            ? "bg-green-500"
+                            : status === "paused"
+                                ? "bg-yellow-500"
+                                : "bg-gray-500"
+                    }`}
+                >
+                    {status.toUpperCase()}
+                </Badge>
             </CardHeader>
+
             <CardContent className="space-y-6">
 
-                {/* 1. Operation Mode (保留原样) */}
+                {/* Mode Selection */}
                 <div>
-                    <p className="text-sm mb-2 font-semibold text-muted-foreground uppercase tracking-wider">Operation Mode</p>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <p className="text-sm font-semibold text-gray-600 uppercase mb-2">Operation Mode</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <Button variant={mode === "clean" ? "default" : "outline"} onClick={() => onModeChange("clean")} className="gap-2"><Eraser className="size-4" />Clean</Button>
                         <Button variant={mode === "scan" ? "default" : "outline"} onClick={() => onModeChange("scan")} className="gap-2"><ScanLine className="size-4" />Scan</Button>
                         <Button variant={mode === "write" ? "default" : "outline"} onClick={() => onModeChange("write")} className="gap-2"><PenTool className="size-4" />Write</Button>
@@ -80,60 +102,74 @@ export function RobotControls({ mode, status, onModeChange, onStatusChange }: Ro
                     </div>
                 </div>
 
-                {/* 2. Movement Control (保留原样) */}
-                <div>
-                    <p className="text-sm mb-2 font-semibold text-muted-foreground uppercase tracking-wider">Manual Movement</p>
-                    <div className="grid grid-cols-2 gap-2">
-                        <Button variant="outline" onClick={() => handleMove("X", 10)} className="gap-2"><ArrowLeftRight className="size-4" />Move X (10mm)</Button>
-                        <Button variant="outline" onClick={() => handleMove("Y", 10)} className="gap-2"><ArrowUpDown className="size-4" />Move Y (10mm)</Button>
+                {/* Manual Move + Goto + Reset */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Manual Move */}
+                    <div className="border p-3 rounded-md space-y-2">
+                        <p className="text-sm font-semibold text-gray-600 uppercase">Manual Movement</p>
+                        <div className="flex gap-2 items-center">
+                            <select value={moveDirection} onChange={(e) => setMoveDirection(e.target.value as any)} className="border rounded px-2 py-1 w-24">
+                                <option value="u">Up</option>
+                                <option value="d">Down</option>
+                                <option value="r">Right</option>
+                                <option value="l">Left</option>
+                            </select>
+                            <input
+                                type="number"
+                                placeholder="Steps"
+                                value={moveSteps}
+                                onChange={(e) => setMoveSteps(Number(e.target.value))}
+                                className="border rounded px-2 py-1 w-24"
+                            />
+                            <Button onClick={handleMove} className="flex-1">Move</Button>
+                        </div>
+                    </div>
+
+                    {/* Goto + Reset */}
+                    <div className="border p-3 rounded-md space-y-2">
+                        <p className="text-sm font-semibold text-gray-600 uppercase">Goto Position</p>
+                        <div className="flex gap-2 items-center mb-2">
+                            <input
+                                type="number"
+                                placeholder="X"
+                                value={gotoX}
+                                onChange={(e) => setGotoX(Number(e.target.value))}
+                                className="border rounded px-2 py-1 w-24"
+                            />
+                            <input
+                                type="number"
+                                placeholder="Y"
+                                value={gotoY}
+                                onChange={(e) => setGotoY(Number(e.target.value))}
+                                className="border rounded px-2 py-1 w-24"
+                            />
+                            <Button onClick={handleGoto} className="flex-1">Go</Button>
+                        </div>
+                        <Button variant="secondary" onClick={() => sendCommand("goto 0 0", "Position reset to (0,0)")} className="w-full">
+                            Reset Position
+                        </Button>
                     </div>
                 </div>
 
-                {/* 3. Status Control (Start/Pause/Stop) */}
-                <div>
-                    <p className="text-sm mb-2 font-semibold text-muted-foreground uppercase tracking-wider">Execution Control</p>
+                {/* Execution Control */}
+                <div className="border p-3 rounded-md space-y-2">
+                    <p className="text-sm font-semibold text-gray-600 uppercase">Execution Control</p>
                     <div className="flex gap-2">
-                        <Button variant={status === "active" ? "default" : "outline"} onClick={() => sendCommand("start", "Robot Started", "active")} className="flex-1 gap-2" disabled={mode === "idle"}><Play className="size-4" />Start</Button>
-                        <Button variant={status === "paused" ? "default" : "outline"} onClick={() => sendCommand("pause", "Robot Paused", "paused")} className="flex-1 gap-2" disabled={mode === "idle" || status === "stopped"}><Pause className="size-4" />Pause</Button>
-                        <Button variant={status === "stopped" ? "outline" : "destructive"} onClick={() => sendCommand("stop", "Robot Stopped", "stopped")} className="flex-1 gap-2" disabled={mode === "idle"}><Power className="size-4" />Stop</Button>
+                        <Button variant={status === "active" ? "default" : "outline"} onClick={() => sendCommand("start", "Robot Started", "active")} className="flex-1 gap-2"><Play className="size-4" />Start</Button>
+                        <Button variant={status === "paused" ? "default" : "outline"} onClick={() => sendCommand("pause", "Robot Paused", "paused")} className="flex-1 gap-2"><Pause className="size-4" />Pause</Button>
+                        <Button variant="destructive" onClick={() => sendCommand("stop", "Robot Stopped", "stopped")} className="flex-1 gap-2"><Power className="size-4" />Stop</Button>
                     </div>
                 </div>
 
-                {/* --- 新增：Advanced Automation (Demo & Test) --- */}
-                <div className="pt-2 border-t">
-                    <p className="text-sm mb-3 font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                        <ShieldCheck className="size-4" /> Specialized Routines
-                    </p>
+                {/* Demo / Test */}
+                <div className="border p-3 rounded-md">
+                    <p className="text-sm font-semibold text-gray-600 uppercase flex items-center gap-2 mb-2"><ShieldCheck className="size-4"/>Specialized Routines</p>
                     <div className="grid grid-cols-2 gap-4">
-                        <Button
-                            variant="secondary"
-                            className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200"
-                            onClick={() => sendCommand("startDemo", "Demo sequence initiated", "active")}
-                        >
-                            <PlayCircle className="mr-2 size-4" />
-                            Run Demo
-                        </Button>
-                        <Button
-                            variant="secondary"
-                            className="bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-200"
-                            onClick={() => sendCommand("startTest", "Diagnostic test started", "active")}
-                        >
-                            <Beaker className="mr-2 size-4" />
-                            Run Test
-                        </Button>
+                        <Button variant="secondary" onClick={() => sendCommand("demo", "Demo sequence initiated", "active")}><PlayCircle className="mr-2 size-4"/>Run Demo</Button>
+                        <Button variant="secondary" onClick={() => sendCommand("test", "Diagnostic test started", "active")}><Beaker className="mr-2 size-4"/>Run Test</Button>
                     </div>
                 </div>
 
-                {/* Current Mode Display */}
-                <div className="p-3 bg-muted rounded-lg flex items-center gap-2">
-                    <div className="p-2 bg-background rounded-full shadow-sm">
-                        {mode === "clean" && <Eraser className="size-4" />}
-                        {mode === "scan" && <ScanLine className="size-4" />}
-                        {mode === "write" && <PenTool className="size-4" />}
-                        {mode === "idle" && <Power className="size-4" />}
-                    </div>
-                    <span className="text-sm">System ready for <strong>{mode}</strong> mode.</span>
-                </div>
             </CardContent>
         </Card>
     );

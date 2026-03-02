@@ -1,7 +1,7 @@
 import logo from "./assets/BigBoardMateLogo.png";
 import  smalllogo from "./assets/SmallBoardMateLogo.png";
 import { useState } from "react";
-import { RobotControls } from "./components/RobotControls";
+import RobotControls from "./components/RobotControls";
 import { CameraView } from "./components/CameraView";
 import { PDFViewer } from "./components/PDFViewer";
 import { FileManager } from "./components/FileManager";
