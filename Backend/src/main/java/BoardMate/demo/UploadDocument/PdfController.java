@@ -20,7 +20,6 @@ public class PdfController {
             .resolve("Camera")
             .resolve("SavedPDF");
 
-    // 你原来的接口保留不变
     @GetMapping(value = "/latest", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<Resource> getLatestPdf() {
         FileSystemResource resource = new FileSystemResource(pdfDir.resolve("output.pdf").toFile());
@@ -28,7 +27,6 @@ public class PdfController {
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF).body(resource);
     }
 
-    // 新增：列出所有PDF
     @GetMapping("/list")
     public List<Map<String, Object>> listPDFs() {
         File dir = pdfDir.toFile();
@@ -50,8 +48,6 @@ public class PdfController {
         }
         return result;
     }
-
-    // 新增：按文件名获取PDF
     @GetMapping(value = "/file/{filename}", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<Resource> getPDF(@PathVariable String filename) {
         FileSystemResource resource = new FileSystemResource(pdfDir.resolve(filename).toFile());
@@ -59,7 +55,6 @@ public class PdfController {
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF).body(resource);
     }
 
-    // 新增：删除PDF
     @DeleteMapping("/file/{filename}")
     public ResponseEntity<Void> deletePDF(@PathVariable String filename) {
         pdfDir.resolve(filename).toFile().delete();
