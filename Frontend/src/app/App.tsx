@@ -63,12 +63,10 @@ export default function App() {
         if (mode === "idle") {
             setRobotStatus("stopped");
         }
-        if(mode === "clean" || mode === "scan" || mode === "write") {
-            setRobotStatus("active");
-        }
         if (mode === "write") {
             toast.info("Write mode will come later");
         }
+        
         toast.success(`Robot mode changed to: ${mode}`);
     };
 
