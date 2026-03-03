@@ -6,6 +6,8 @@
 #define MS2 5
 #define MS3 6
 #define EN 7
+#define ERS A2
+
 //Declare variables for functions
 char user_input;
 int i;
@@ -22,22 +24,22 @@ int delayTime = 500;
  * 
  * {motor count, axis / directionX, direction / directionY}
  */
-bool u[3] = {LOW, HIGH, HIGH}; // 011
-bool d[3] = {LOW, HIGH, LOW}; //010
+bool u[3] = {LOW, HIGH, LOW}; // 011
+bool d[3] = {LOW, HIGH, HIGH}; //010
 bool l[3] = {LOW, LOW, LOW};
 bool r[3] = {LOW, LOW, HIGH};
 
-bool ur[4] = {HIGH, HIGH, HIGH};
-bool ru[4] = {HIGH, HIGH, HIGH};
+bool ur[4] = {HIGH, HIGH, LOW};
+bool ru[4] = {HIGH, HIGH, LOW};
 
-bool dr[4] = {HIGH, HIGH, LOW};
-bool rd[4] = {HIGH, HIGH, LOW};
+bool dr[4] = {HIGH, HIGH, HIGH};
+bool rd[4] = {HIGH, HIGH, HIGH};
 
-bool ul[4] = {HIGH, LOW, HIGH};
-bool lu[4] = {HIGH, LOW, HIGH};
+bool ul[4] = {HIGH, LOW, LOW};
+bool lu[4] = {HIGH, LOW, LOW};
 
-bool dl[4] = {HIGH, LOW, LOW};
-bool ld[4] = {HIGH, LOW, LOW};
+bool dl[4] = {HIGH, LOW, HIGH};
+bool ld[4] = {HIGH, LOW, HIGH};
 
 int pos[2] = {0, 0};
 
@@ -46,6 +48,8 @@ int pos[2] = {0, 0};
 const int button1 = A0;  // SIG1 - green 
 const int button2 = A1;  // SIG2 - red 
 
+//solenoid
+const int solenoidPin = 13;
 
 void setup() {
   // put your setup code here, to run once:
@@ -57,12 +61,14 @@ void setup() {
   pinMode(MS2, OUTPUT);
   pinMode(MS3, OUTPUT);
   pinMode(EN, OUTPUT);
-
+  pinMode(ERS, OUTPUT);
+  pinMode(solenoidPin, OUTPUT);
   
   //assigning input to buttons
   pinMode(button1, INPUT);
   pinMode(button2, INPUT);
 
+  digitalWrite(ERS, LOW);
   
   resetBEDPins(); //Set step, direction, microstep and enable pins to default states
   Serial.begin(9600);
@@ -83,6 +89,11 @@ void resetBEDPins() {
 
 void loop() {
   // put your main code here, to run repeatedly:
+
+
+
+
+  
 
     if (digitalRead(button1) == LOW) {
       delay(50);  // debounce
@@ -139,12 +150,18 @@ void loop() {
       Serial.println(" - goto <x> <y>     : Whiteboard carriage will go to the coordinates <x> and <y>, given as integers");
       Serial.println(" - move <dir> <dst> : Whiteboard carriage will move <dst> steps in <dir> direction");
       Serial.println(" - getpos           : Prints the current position of the carriage");
-      Serial.println(" - hold <time>      : Holds the carriage for the specified time in multiples of step time");
-      Serial.println(" - speed <time>     : sets the length of time for a step in microseconds");
+      Serial.println(" - speed <time>     : Sets the length of time for a step in microseconds");
       Serial.println(" - getspeed         : Prints the current speed of the carriage");
-      Serial.println(" - freq <Hz>        : sets the length of time for a step in microseconds so the steps occur at the given <Hz>");
-      Serial.println(" - mvet <dst> <len> : sets the length of time for a step in microseconds so the steps occur at the given <Hz>");
+      Serial.println(" - freq <Hz>        : Sets the length of time for a step in microseconds so the steps occur at the given <Hz>");
+      Serial.println(" - mvet <dst> <len> : Moves for a specified time in Ms");
+      Serial.println(" - samsung          : Plays a litlle tune");
 */
+    }
+    else if (cmd == "erase") {
+      eraserEnable();
+    }
+    else if (cmd == "stoperase") {
+      eraserDisable();
     }
     else if (cmd == "test") {
       motorTest();    
@@ -297,6 +314,13 @@ void hold (int holdtimes) {
   }
 }
 
+void eraserEnable () {
+  digitalWrite(ERS, HIGH);
+}
+void eraserDisable () {
+  digitalWrite(ERS, LOW);
+}
+
 void setSpeed (int delaytime) {
     if (delaytime < 500) {
     delaytime = 500;
@@ -441,11 +465,11 @@ void samsung() {
   moveTime(u, 300);
   delay(150);
   
-  moveTime(u, 150);
+  moveTime(d, 150);
   setFrequency(494);
-  moveTime(u, 150);
+  moveTime(d, 150);
   setFrequency(440);
-  moveTime(u, 150);
+  moveTime(d, 150);
   setFrequency(415);
   moveTime(u, 150);
   setFrequency(369);
@@ -457,13 +481,13 @@ void samsung() {
 
   
   setFrequency(329);
-  moveTime(u, 150);
+  moveTime(d, 150);
   delay(150);
   setFrequency(440);
-  moveTime(u, 150);
+  moveTime(d, 150);
   delay(150);
   setFrequency(440);
-  moveTime(u, 150);
+  moveTime(d, 150);
   delay(150);
   setFrequency(554);
   moveTime(u, 150);
@@ -476,13 +500,13 @@ void samsung() {
   delay(300);
   
   setFrequency(329);
-  moveTime(u, 150);
+  moveTime(d, 150);
   delay(150);
   setFrequency(440);
-  moveTime(u, 150);
+  moveTime(d, 150);
   delay(150);
   setFrequency(415);
-  moveTime(u, 300);
+  moveTime(d, 300);
   setFrequency(369);
   moveTime(u, 150);
   setFrequency(415);
@@ -491,14 +515,14 @@ void samsung() {
   moveTime(u, 150);
   delay(150);
   setFrequency(311);
-  moveTime(u, 150);
+  moveTime(d, 150);
   delay(150);
   setFrequency(329);
-  moveTime(u, 600);
+  moveTime(d, 600);
   delay(300);
   
   setFrequency(329);
-  moveTime(u, 150);
+  moveTime(d, 150);
   delay(150);
   setFrequency(415);
   moveTime(u, 150);
@@ -509,11 +533,11 @@ void samsung() {
   setFrequency(440);
   moveTime(u, 150);
   setFrequency(415);
-  moveTime(u, 150);
+  moveTime(d, 150);
   setFrequency(369);
-  moveTime(u, 150);
+  moveTime(d, 150);
   setFrequency(415);
-  moveTime(u, 150);
+  moveTime(d, 150);
   setFrequency(440);
   moveTime(u, 300);
   delay(300);
@@ -525,13 +549,13 @@ void samsung() {
   moveTime(u, 150);
   delay(150);
   setFrequency(415);
-  moveTime(u, 150);
+  moveTime(d, 150);
   delay(150);
   setFrequency(415);
-  moveTime(u, 150);
+  moveTime(d, 150);
   delay(150);
   setFrequency(415);
-  moveTime(u, 150);
+  moveTime(d, 150);
   setFrequency(587);
   moveTime(u, 150);
   setFrequency(493);
@@ -539,14 +563,14 @@ void samsung() {
   setFrequency(415);
   moveTime(u, 150);
   setFrequency(440);
-  moveTime(u, 600);
+  moveTime(d, 600);
   delay(300);
 
   setFrequency(440);
-  moveTime(u, 150);
+  moveTime(d, 150);
   delay(150);
   setFrequency(369);
-  moveTime(u, 150);
+  moveTime(d, 150);
   delay(150);
   setFrequency(369);
   moveTime(u, 150);
@@ -558,14 +582,14 @@ void samsung() {
   moveTime(u, 150);
   delay(150);
   setFrequency(440);
-  moveTime(u, 300);
+  moveTime(d, 300);
   delay(300);
 
   setFrequency(329);
-  moveTime(u, 150);
+  moveTime(d, 150);
   delay(150);
   setFrequency(329);
-  moveTime(u, 150);
+  moveTime(d, 150);
   delay(150);
   setFrequency(329);
   moveTime(u, 300);
@@ -575,13 +599,13 @@ void samsung() {
   setFrequency(494);
   moveTime(u, 300);
   setFrequency(415);
-  moveTime(u, 300);
+  moveTime(d, 300);
   setFrequency(440);
-  moveTime(u, 600);
+  moveTime(d, 600);
   delay(300);
 
   setFrequency(440);
-  moveTime(u, 150);
+  moveTime(d, 150);
   delay(150);
   setFrequency(415);
   moveTime(u, 150);
@@ -591,11 +615,11 @@ void samsung() {
   moveTime(u, 150);
   delay(150);
   setFrequency(369);
-  moveTime(u, 150);
+  moveTime(d, 150);
   setFrequency(440);
-  moveTime(u, 150);
+  moveTime(d, 150);
   setFrequency(415);
-  moveTime(u, 150);
+  moveTime(d, 150);
   setFrequency(494);
   moveTime(u, 150);
   setFrequency(440);
@@ -606,13 +630,13 @@ void samsung() {
   moveTime(u, 150);
   delay(150);
   setFrequency(329);
-  moveTime(u, 150);
+  moveTime(d, 150);
   delay(150);
   setFrequency(329);
-  moveTime(u, 300);
+  moveTime(d, 300);
   delay(150);
   
-  moveTime(u, 150);
+  moveTime(d, 150);
   setFrequency(494);
   moveTime(u, 300);
   setFrequency(415);
@@ -622,11 +646,11 @@ void samsung() {
   delay(400);
 
   setFrequency(554);
-  moveTime(u, 366);
+  moveTime(d, 366);
   setFrequency(659);
-  moveTime(u, 200);
+  moveTime(d, 200);
   setFrequency(494);
-  moveTime(u, 200);
+  moveTime(d, 200);
   setFrequency(554);
   moveTime(u, 200);
   setFrequency(440);
@@ -682,15 +706,15 @@ void goTo(int xPos, int yPos) {
 }
 
 void traverseBoard (bool dir[], int holdTime) {
-  for(j=0; j<7; j++) {
-    mve(dir, 200);
+  for(j=0; j<4; j++) {
+    mve(dir, 400);
     delay(holdTime);
   }
   getPos();
 }
 
 void moveDownLevel (int holdTime) {
-  mve(d, 200);
+  mve(d, 250);
   delay(holdTime);
   getPos();
 }
@@ -705,9 +729,17 @@ void getPos () {
 void demo () {
   
   Serial.println("Demo");
-  
-  goTo(0,0);
-  int holdTime = 500;
+  pos[0] = 0;
+  pos[1] = 0;
+  setSpeed(1000);
+  mve(u, 2000);
+  //goTo(0,0);
+  int holdTime = 1200;
+  delay(2500);
+  traverseBoard(r, holdTime);
+  moveDownLevel(holdTime);
+  traverseBoard(l, holdTime);
+  /*moveDownLevel(holdTime);
   traverseBoard(r, holdTime);
   moveDownLevel(holdTime);
   traverseBoard(l, holdTime);
@@ -717,8 +749,10 @@ void demo () {
   traverseBoard(l, holdTime);
   moveDownLevel(holdTime);
   traverseBoard(r, holdTime);
+  moveDownLevel(holdTime);
+  traverseBoard(l, holdTime);
+  moveDownLevel(holdTime);*/
   goTo(0,0);
-  
 }
 
 
