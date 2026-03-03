@@ -184,7 +184,7 @@ export default function RobotControls({ mode, status, onModeChange, onStatusChan
                             if (mode === "idle") { toast.error("Please select a mode before starting"); return; }
                             sendCommand("pause", "Robot Paused", "paused");
                         }} className="flex-1 gap-2"><Pause className="size-4" />Pause</Button>
-                        <Button variant="destructive" onClick={() => sendCommand("stop", "Robot Stopped", "stopped")} className="flex-1 gap-2"><Power className="size-4" />Stop</Button>
+                        <Button variant={status === "stopped" ? "destructive" : "outline"} onClick={() => sendCommand("stop", "Robot Stopped", "stopped")} className="flex-1 gap-2"><Power className="size-4" />Stop</Button>
                     </div>
                 </div>
 
