@@ -2,7 +2,6 @@ import logo from "./assets/BigBoardMateLogo.png";
 import smalllogo from "./assets/SmallBoardMateLogo.png";
 import { useState } from "react";
 import RobotControls from "./components/RobotControls";
-import { CameraView } from "./components/CameraView";
 import { PDFViewer } from "./components/PDFViewer";
 import { FileManager } from "./components/FileManager";
 import {
@@ -156,9 +155,7 @@ export default function App() {
                     </div>
 
                     {/* Real-time Camera Feed View */}
-                    <div>
-                        <CameraView isConnected={isCameraConnected} />
-                    </div>
+
                 </div>
 
                 {/* Content Management Tabs */}
