@@ -96,7 +96,31 @@ export default function RobotControls({ mode, status, onModeChange, onStatusChan
                     <p className="text-sm font-semibold text-gray-600 uppercase mb-2">Operation Mode</p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <Button variant={mode === "clean" ? "default" : "outline"} onClick={() => onModeChange("clean")} className="gap-2"><Eraser className="size-4" />Clean</Button>
-                        <Button variant={mode === "scan" ? "default" : "outline"} onClick={() => onModeChange("scan")} className="gap-2"><ScanLine className="size-4" />Scan</Button>
+                
+                        <Button
+    variant={mode === "scan" ? "default" : "outline"}
+    onClick={async () => {
+        onModeChange("scan");
+        try {
+            const response = await fetch("http://localhost:8080/api/scan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ start_scanning: true }),
+            });
+            if (response.ok) {
+                toast.success("Scan started");
+                onStatusChange("active");
+            } else {
+                toast.error("Scan failed to start");
+            }
+        } catch (error) {
+            toast.error("Network connection error");
+        }
+    }}
+    className="gap-2"
+>
+    <ScanLine className="size-4" />Scan
+</Button>
                         <Button variant={mode === "write" ? "default" : "outline"} onClick={() => onModeChange("write")} className="gap-2"><PenTool className="size-4" />Write</Button>
                         <Button variant={mode === "idle" ? "default" : "outline"} onClick={() => onModeChange("idle")} className="gap-2"><Power className="size-4" />Idle</Button>
                     </div>
