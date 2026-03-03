@@ -13,6 +13,7 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/api/pdf")
+@CrossOrigin(originPatterns = "*")
 public class PdfController {
 
     private final Path pdfDir = Paths.get(System.getProperty("user.dir"))
@@ -39,7 +40,7 @@ public class PdfController {
         for (int i = 0; i < files.length; i++) {
             File f = files[i];
             Map<String, Object> doc = new HashMap<>();
-            doc.put("id", String.valueOf(i));
+            doc.put("id", f.getName()); 
             doc.put("name", f.getName());
             doc.put("url", "/api/pdf/file/" + f.getName());
             doc.put("date", new Date(f.lastModified()));
@@ -48,8 +49,12 @@ public class PdfController {
         }
         return result;
     }
+
     @GetMapping(value = "/file/{filename}", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<Resource> getPDF(@PathVariable String filename) {
+        if (filename.contains("..") || filename.contains("/")) {
+            return ResponseEntity.badRequest().build();
+        }
         FileSystemResource resource = new FileSystemResource(pdfDir.resolve(filename).toFile());
         if (!resource.exists()) return ResponseEntity.notFound().build();
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF).body(resource);
@@ -57,7 +62,11 @@ public class PdfController {
 
     @DeleteMapping("/file/{filename}")
     public ResponseEntity<Void> deletePDF(@PathVariable String filename) {
-        pdfDir.resolve(filename).toFile().delete();
+        if (filename.contains("..") || filename.contains("/")) {
+            return ResponseEntity.badRequest().build();
+        }
+        boolean deleted = pdfDir.resolve(filename).toFile().delete();
+        if (!deleted) return ResponseEntity.notFound().build();
         return ResponseEntity.ok().build();
     }
 }
