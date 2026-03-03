@@ -31,7 +31,7 @@ export default function RobotControls({ mode, status, onModeChange, onStatusChan
     const [gotoX, setGotoX] = useState<number | "">("");
     const [gotoY, setGotoY] = useState<number | "">("");
 
-    const sendCommand = async (command: string, successMsg?: string, updateStatus?: RobotStatus) => {
+    const sendCommand = async (command: string, successMsg?: string, updateStatus?: RobotStatus, extra?: string) => {
         try {
             const response = await fetch("http://localhost:8080/api/robot/commands", {
                 method: "POST",
@@ -42,6 +42,13 @@ export default function RobotControls({ mode, status, onModeChange, onStatusChan
             if (response.ok) {
                 if (successMsg) toast.success(successMsg);
                 if (updateStatus) onStatusChange(updateStatus);
+                if (extra) {
+                    await fetch("http://localhost:8080/api/robot/commands", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ command: extra }),
+                    });
+                }
             } else {
                 toast.error(`Command failed: ${command}`);
             }
@@ -66,6 +73,23 @@ export default function RobotControls({ mode, status, onModeChange, onStatusChan
         }
         const command = `goto ${gotoX} ${gotoY}`;
         sendCommand(command, `Moving to (${gotoX}, ${gotoY})`);
+    };
+
+    const handleStart = async () => {
+        if (mode === "idle") {
+            toast.error("Please select a mode before starting");
+            return;
+        }
+        onStatusChange("active");
+        await sendCommand("start", "Robot Started");
+        if (mode === "scan") {
+            await fetch("http://localhost:8080/api/scan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ start_scanning: true }),
+            });
+            toast.success("Camera scanning started");
+        }
     };
 
     return (
@@ -96,31 +120,7 @@ export default function RobotControls({ mode, status, onModeChange, onStatusChan
                     <p className="text-sm font-semibold text-gray-600 uppercase mb-2">Operation Mode</p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <Button variant={mode === "clean" ? "default" : "outline"} onClick={() => onModeChange("clean")} className="gap-2"><Eraser className="size-4" />Clean</Button>
-                
-                        <Button
-    variant={mode === "scan" ? "default" : "outline"}
-    onClick={async () => {
-        onModeChange("scan");
-        try {
-            const response = await fetch("http://localhost:8080/api/scan", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ start_scanning: true }),
-            });
-            if (response.ok) {
-                toast.success("Scan started");
-                onStatusChange("active");
-            } else {
-                toast.error("Scan failed to start");
-            }
-        } catch (error) {
-            toast.error("Network connection error");
-        }
-    }}
-    className="gap-2"
->
-    <ScanLine className="size-4" />Scan
-</Button>
+                        <Button variant={mode === "scan" ? "default" : "outline"} onClick={() => onModeChange("scan")} className="gap-2"><ScanLine className="size-4" />Scan</Button>
                         <Button variant={mode === "write" ? "default" : "outline"} onClick={() => onModeChange("write")} className="gap-2"><PenTool className="size-4" />Write</Button>
                         <Button variant={mode === "idle" ? "default" : "outline"} onClick={() => onModeChange("idle")} className="gap-2"><Power className="size-4" />Idle</Button>
                     </div>
@@ -179,8 +179,11 @@ export default function RobotControls({ mode, status, onModeChange, onStatusChan
                 <div className="border p-3 rounded-md space-y-2">
                     <p className="text-sm font-semibold text-gray-600 uppercase">Execution Control</p>
                     <div className="flex gap-2">
-                        <Button variant={status === "active" ? "default" : "outline"} onClick={() => sendCommand("start", "Robot Started", "active")} className="flex-1 gap-2"><Play className="size-4" />Start</Button>
-                        <Button variant={status === "paused" ? "default" : "outline"} onClick={() => sendCommand("pause", "Robot Paused", "paused")} className="flex-1 gap-2"><Pause className="size-4" />Pause</Button>
+                        <Button variant={status === "active" ? "default" : "outline"} onClick={handleStart} className="flex-1 gap-2"><Play className="size-4" />Start</Button>
+                        <Button variant={status === "paused" ? "default" : "outline"} onClick={() => {
+                            if (mode === "idle") { toast.error("Please select a mode before starting"); return; }
+                            sendCommand("pause", "Robot Paused", "paused");
+                        }} className="flex-1 gap-2"><Pause className="size-4" />Pause</Button>
                         <Button variant="destructive" onClick={() => sendCommand("stop", "Robot Stopped", "stopped")} className="flex-1 gap-2"><Power className="size-4" />Stop</Button>
                     </div>
                 </div>

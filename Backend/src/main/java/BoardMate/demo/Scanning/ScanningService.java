@@ -16,7 +16,7 @@ public class ScanningService {
 
             ProcessBuilder pb = new ProcessBuilder("python3", scriptPath);
             pb.inheritIO();
-            System.out.println(" Running run_all.py at: " + scriptPath); 
+    
             Process process = pb.start();
             process.waitFor();
 
