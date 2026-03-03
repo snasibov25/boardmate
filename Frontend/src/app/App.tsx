@@ -2,7 +2,7 @@ import logo from "./assets/BigBoardMateLogo.png";
 import  smalllogo from "./assets/SmallBoardMateLogo.png";
 import { useState } from "react";
 import RobotControls from "./components/RobotControls";
-import { CameraView } from "./components/CameraView";
+
 import { PDFViewer } from "./components/PDFViewer";
 import { FileManager } from "./components/FileManager";
 import {
@@ -64,9 +64,7 @@ export default function App() {
     if (mode === "idle") {
       setRobotStatus("stopped");
     }
-    if(mode === "clean" || mode === "scan" || mode === "write") {
-      setRobotStatus("active");
-    }
+
     if (mode === "write") {
       toast.info("Write mode will come later");
     }
@@ -171,7 +169,7 @@ export default function App() {
 
           {/* Camera View - Takes 1 column */}
           <div>
-            <CameraView isConnected={isCameraConnected} />
+
           </div>
         </div>
 
