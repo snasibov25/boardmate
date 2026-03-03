@@ -83,12 +83,17 @@ export default function RobotControls({ mode, status, onModeChange, onStatusChan
         onStatusChange("active");
         await sendCommand("start", "Robot Started");
         if (mode === "scan") {
-            await fetch("http://localhost:8080/api/scan", {
+            const res = await fetch("http://localhost:8080/api/scan", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ start_scanning: true }),
             });
-            toast.success("Camera scanning started");
+            const data = await res.json();
+            if (data.success) {
+                toast.success("Scan completed! PDF has been saved.");
+            } else {
+                toast.error("Scan failed, please try again.");
+            }
         }
     };
 

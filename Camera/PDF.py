@@ -7,7 +7,9 @@ IMAGES_PATH = BASE_DIR / "Image"
 PDF_DIR = BASE_DIR / "SavedPDF"
 PDF_DIR.mkdir(parents=True, exist_ok=True)
 
-IMAGE_SAVE_PATH = PDF_DIR / "output.pdf"     
+existing = [f for f in PDF_DIR.iterdir() if f.stem.startswith("Note") and f.suffix == ".pdf"]
+next_num = len(existing) + 1
+IMAGE_SAVE_PATH = PDF_DIR / f"Note{next_num}.pdf"
 
 IMAGES_FORMAT = ['.jpg']          
 IMAGE_SIZE = 256                         
