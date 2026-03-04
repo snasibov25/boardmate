@@ -1,0 +1,123 @@
+/* ===== 整体页面 ===== */
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #ffffff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    color: #1a1a1a;
+  }
+  
+  /* ===== 最外层容器 ===== */
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+  
+  /* ===== 顶部细分割线 ===== */
+  .top-line {
+    border: none;
+    border-top: 1px solid #e0e0e0;
+    margin: 0;
+  }
+  
+  /* ===== 每一行课程 ===== */
+  .lecture-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 0;
+    border-bottom: 1px solid #e8e8e8;
+  }
+  
+  /* ===== 左侧课程名称 ===== */
+  .lecture-title {
+    font-size: 15px;
+    color: #1a1a1a;
+    flex: 1;
+    padding-right: 40px;
+  }
+  
+  /* ===== 右侧整体区域 ===== */
+  .lecture-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+  
+  /* ===== 日期 + 时间 ===== */
+  .lecture-date-wrap {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 260px;
+    justify-content: flex-end;
+  }
+  
+  /* 日期部分（较深） */
+  .lecture-date {
+    font-size: 14px;
+    color: #444444;
+    font-weight: 400;
+  }
+  
+  /* 时间部分（较浅） */
+  .lecture-time {
+    font-size: 14px;
+    color: #888888;
+  }
+  
+  /* ===== 粉色幻灯片按钮 ===== */
+  .btn-slides {
+    width: 36px;
+    height: 36px;
+    border: 1.8px solid #d4448a;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background-color: #ffffff;
+    flex-shrink: 0;
+  }
+  
+  /* 占位：没有粉色按钮时保持列对齐 */
+  .btn-slides-placeholder {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+  }
+  
+  /* ===== 评论图标 + 数字 ===== */
+  .comment-wrap {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 36px;
+  }
+  
+  .comment-wrap span {
+    font-size: 14px;
+    color: #444444;
+  }
+  
+  /* ===== Lecture Note 跳转链接 ===== */
+  .lecture-note-link {
+    font-size: 13px;
+    color: #d4448a;
+    text-decoration: none;
+    border: 1.5px solid #d4448a;
+    border-radius: 5px;
+    padding: 4px 10px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background-color 0.15s, color 0.15s;
+  }
+  
+  /* 鼠标悬停：变成粉色背景白字 */
+  .lecture-note-link:hover {
+    background-color: #d4448a;
+    color: #ffffff;
+  }
