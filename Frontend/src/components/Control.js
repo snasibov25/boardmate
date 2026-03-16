@@ -30,6 +30,24 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
     setTimeout(() => setToast(null), 3000);
   };
 
+  const sendRobotCommand = async (command) => {
+    try {
+      const res = await fetch("http://127.0.0.1:5000/api/robot/commands", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || "Unknown error");
+      const status = data?.robotStatus ?? (data?.message || "command sent");
+      showToast(`Robot: ${status}`);
+      return data;
+    } catch (err) {
+      showToast(`Command failed: ${err?.message || err}`);
+      console.error(err);
+    }
+  };
+
   const handleBoardClick = (e) => {
     if (svgPlaced) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -187,7 +205,14 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 10 }}>Robot Status</div>
           <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={() => { if (mode === "Idle") { showToast("Please select a mode before starting."); return; } setRobotStatus("Running"); }} style={{
+            <button onClick={async () => {
+              if (mode === "Idle") {
+                showToast("Please select a mode before starting.");
+                return;
+              }
+              setRobotStatus("Running");
+              await sendRobotCommand(`start ${mode.toLowerCase()}`);
+            }} style={{
               display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
               padding: "10px 0", width: 120, borderRadius: 8, border: "none",
               backgroundColor: robotStatus === "Running" ? "#22c55e" : "#e5e7eb",
