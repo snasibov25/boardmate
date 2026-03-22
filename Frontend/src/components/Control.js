@@ -48,6 +48,25 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
     }
   };
 
+  const uploadSVG = async (svgContent) => {
+    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+    const formData = new FormData();
+    formData.append('file', blob, 'upload.svg');
+    try {
+      const res = await fetch("http://127.0.0.1:5000/api/upload/svg", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || "Upload failed");
+      showToast("SVG uploaded successfully");
+      return data;
+    } catch (err) {
+      showToast(`Upload failed: ${err?.message || err}`);
+      console.error(err);
+    }
+  };
+
   const handleBoardClick = (e) => {
     if (svgPlaced) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -211,6 +230,9 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
                 return;
               }
               setRobotStatus("Running");
+              if (mode === "Write" && uploadedSVG) {
+                await uploadSVG(uploadedSVG);
+              }
               await sendRobotCommand(`start ${mode.toLowerCase()}`);
             }} style={{
               display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
