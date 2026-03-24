@@ -259,11 +259,58 @@ def run_scan_sequence(erase, rowNum=4, colNum=6):
         print("SCAN: complete")
         send_command("DS")
 
-def run_erase_sequence():
+def run_erase_sequence(erase, rowNum=4, colNum=6):
     with job_lock:
-        pi_eraser_down()
-        time.sleep(0.5)
+        stop_event.clear()
+
+        ROWS = rowNum
+        COLS = colNum
+        X_STEP = 400
+        Y_STEP = 400
+
+        FIRST_SETTLE = 0.25
+        MOVE_SETTLE = 0.25
+        SWEEP_SETTLE = 0.25  # small wait after long sweep
+
+        send_command("EN")
+        # Start at top-left scan point
+        send_command("MVC 0 2000")
+        time.sleep(FIRST_SETTLE)
+
+        if erase:
+            pi_eraser_down()
+
+            for row in range(ROWS):
+              
+                # Capture first column of this row
+                check_stop()
+
+                # Move right across the row, capturing remaining columns
+                for _ in range(COLS - 1):
+                    check_stop()
+                    send_command(f"MVR {X_STEP} 0")
+
+                    check_stop()
+                    
+                # Move to next row if not on last row
+                if row < ROWS - 1:
+                    check_stop()
+
+                    # Big sweep back to the left with no stops/captures
+                    total_left = -(COLS - 1) * X_STEP
+                    send_command(f"MVR {total_left} 0")
+                    time.sleep(SWEEP_SETTLE)
+
+                    check_stop()
+
+                    # Move down one row
+                    send_command(f"MVR 0 {-Y_STEP}")
+                    time.sleep(MOVE_SETTLE)
+
         pi_eraser_up()
+        print("ERASE: complete")
+        send_command("DS")
+
 
 def run_calibrate():
     with job_lock:
