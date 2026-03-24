@@ -34,7 +34,6 @@ LAST_SCAN = {
     "captured_images": [],
 }
 
-
 def read_reply():
     deadline = time.time() + 5.0
     while time.time() < deadline:
@@ -134,26 +133,25 @@ def pi_scan_finalize():
     return pi_expect_ok(pi_post, "/scan/finalize")
 
 
-def run_scan_sequence(erase):
+def run_scan_sequence(erase, rowNum=4, colNum=6):
     with job_lock:
         stop_event.clear()
-        if erase:
-            pi_eraser_down()
+
         LAST_SCAN["captured_images"] = []
         LAST_SCAN["pdf_path"] = None
         LAST_SCAN["raw_zip_path"] = None
 
-        ROWS = 4
-        COLS = 6
+        ROWS = rowNum
+        COLS = colNum
         X_STEP = 400
         Y_STEP = 400
 
-        FIRST_SETTLE = 2.5
-        MOVE_SETTLE = 1.0
+        FIRST_SETTLE = 0.25
+        MOVE_SETTLE = 0.25
+        SWEEP_SETTLE = 0.25  # small wait after long sweep
 
         pi_scan_prepare()
 
-        # send_command("SC 0 0")
         send_command("EN")
 
         image_index = 0
@@ -162,57 +160,101 @@ def run_scan_sequence(erase):
         send_command("MVC 0 2000")
         time.sleep(FIRST_SETTLE)
 
-        # Capture first point of first row
-        result = pi_scan_capture(image_index)
-        LAST_SCAN["captured_images"].append(result["image"])
-        image_index += 1
+        if erase:
+            pi_eraser_down()
 
-        for row in range(ROWS):
-            # Move across the row after the first capture
-            if row % 2 == 0:
-                # even row: move right
-                dx = X_STEP
-            else:
-                # odd row: move left
-                dx = -X_STEP
+            # ERASE MODE:
+            # Physically scan each row left->right only.
+            # After each row (except last), sweep back left with no stops/captures,
+            # move down one row, then scan right again.
+            # To preserve the SAME logical image order as the normal serpentine scan,
+            # reverse the captured row images for odd-numbered rows before storing.
 
-            # complete remaining columns in this row
-            for _ in range(COLS - 1):
-                check_stop()
-                send_command(f"MVR {dx} 0")
-                time.sleep(MOVE_SETTLE)
+            for row in range(ROWS):
+                row_images = []
+
+                # Capture first column of this row
                 check_stop()
                 result = pi_scan_capture(image_index)
-                LAST_SCAN["captured_images"].append(result["image"])
+                row_images.append(result["image"])
                 image_index += 1
 
-            # move down to next row if not on last row
-            if row < ROWS - 1:
-                check_stop()
-                send_command(f"MVR 0 {-Y_STEP}")
-                time.sleep(MOVE_SETTLE)
-                check_stop()
-                result = pi_scan_capture(image_index)
-                LAST_SCAN["captured_images"].append(result["image"])
-                image_index += 1
+                # Move right across the row, capturing remaining columns
+                for _ in range(COLS - 1):
+                    check_stop()
+                    send_command(f"MVR {X_STEP} 0")
+                    time.sleep(MOVE_SETTLE)
+                    check_stop()
+                    result = pi_scan_capture(image_index)
+                    row_images.append(result["image"])
+                    image_index += 1
+
+                # Preserve normal serpentine ordering in stored images
+                if row % 2 == 0:
+                    # even row in normal scan is left->right
+                    LAST_SCAN["captured_images"].extend(row_images)
+                else:
+                    # odd row in normal scan is right->left
+                    LAST_SCAN["captured_images"].extend(reversed(row_images))
+
+                # Move to next row if not on last row
+                if row < ROWS - 1:
+                    check_stop()
+
+                    # Big sweep back to the left with no stops/captures
+                    total_left = -(COLS - 1) * X_STEP
+                    send_command(f"MVR {total_left} 0")
+                    time.sleep(SWEEP_SETTLE)
+
+                    check_stop()
+
+                    # Move down one row
+                    send_command(f"MVR 0 {-Y_STEP}")
+                    time.sleep(MOVE_SETTLE)
+
+        else:
+            # NORMAL MODE: original serpentine scan
+            result = pi_scan_capture(image_index)
+            LAST_SCAN["captured_images"].append(result["image"])
+            image_index += 1
+
+            for row in range(ROWS):
+                if row % 2 == 0:
+                    dx = X_STEP   # even row: move right
+                else:
+                    dx = -X_STEP  # odd row: move left
+
+                for _ in range(COLS - 1):
+                    check_stop()
+                    send_command(f"MVR {dx} 0")
+                    time.sleep(MOVE_SETTLE)
+                    check_stop()
+                    result = pi_scan_capture(image_index)
+                    LAST_SCAN["captured_images"].append(result["image"])
+                    image_index += 1
+
+                if row < ROWS - 1:
+                    check_stop()
+                    send_command(f"MVR 0 {-Y_STEP}")
+                    time.sleep(MOVE_SETTLE)
+                    check_stop()
+                    result = pi_scan_capture(image_index)
+                    LAST_SCAN["captured_images"].append(result["image"])
+                    image_index += 1
+
         if erase:
             pi_eraser_up()
+
         print("SCAN: finalize")
         finalize_result = pi_scan_finalize()
         print("SCAN: finalize result =", finalize_result)
 
-        #pdf_local = os.path.join(RESULT_DIR, "scan.pdf")
         raw_local = os.path.join(RESULT_DIR, "raw_images.zip")
-
-        #print("SCAN: download pdf")
-        #pi_download_file("/download/pdf", pdf_local, timeout=PI_LONG_TIMEOUT)
-        #print("SCAN: pdf downloaded")
 
         print("SCAN: download raw")
         pi_download_file("/download/raw", raw_local, timeout=PI_LONG_TIMEOUT)
         print("SCAN: raw downloaded")
 
-        #LAST_SCAN["pdf_path"] = pdf_local
         LAST_SCAN["raw_zip_path"] = raw_local
         print("SCAN: complete")
         send_command("DS")
@@ -264,6 +306,7 @@ def run_svg_file(svg_path):
 
             raise RuntimeError(f"Unknown command from SVG pipeline: {cmd}")
 
+
 class Handler(BaseHTTPRequestHandler):
     def _send_text(self, code, text):
         body = text.encode()
@@ -290,7 +333,6 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
-        
 
         parsed = urlparse(self.path)
         path = parsed.path.strip("/")
@@ -299,6 +341,7 @@ class Handler(BaseHTTPRequestHandler):
         # -------------------------
         # Debug endpoints
         # -------------------------
+
         if len(parts) >= 2 and parts[0] == "debug":
             try:
                 cmd = parts[1].lower()
@@ -388,6 +431,14 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/scan":
             try:
                 run_scan_sequence(False)
+                self._send_text(200, "Scan sequence complete\n")
+            except Exception as e:
+                self._send_text(500, f"Scan failed: {e}\n")
+            return
+
+        if self.path == "/scan-small":
+            try:
+                run_scan_sequence(False, 1, 6)
                 self._send_text(200, "Scan sequence complete\n")
             except Exception as e:
                 self._send_text(500, f"Scan failed: {e}\n")
