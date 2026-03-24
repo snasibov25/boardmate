@@ -30,6 +30,20 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
     setTimeout(() => setToast(null), 3000);
   };
 
+  const sendCommand = async (command) => {
+    try {
+      const res = await fetch("http://localhost:5001/api/robot/commands", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command }),
+      });
+      const data = await res.json();
+      console.log(data);
+    } catch (e) {
+      showToast("Failed to connect to robot.");
+    }
+  };
+
   const handleBoardClick = (e) => {
     if (svgPlaced) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -187,7 +201,13 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 10 }}>Robot Status</div>
           <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={() => { if (mode === "Idle") { showToast("Please select a mode before starting."); return; } setRobotStatus("Running"); }} style={{
+            <button onClick={() => {
+              if (mode === "Idle") { showToast("Please select a mode before starting."); return; }
+              setRobotStatus("Running");
+              if (mode === "Scan")  sendCommand("start scan");
+              if (mode === "Clean") sendCommand("start clean");
+              if (mode === "Write") sendCommand("start write");
+            }} style={{
               display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
               padding: "10px 0", width: 120, borderRadius: 8, border: "none",
               backgroundColor: robotStatus === "Running" ? "#22c55e" : "#e5e7eb",
@@ -196,7 +216,10 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             }}>
               <svg width="11" height="11" viewBox="0 0 11 12" fill="currentColor"><polygon points="0,0 11,6 0,12"/></svg>Start
             </button>
-            <button onClick={() => { if (mode === "Idle") { showToast("Please select a mode before starting."); return; } setRobotStatus("Paused"); }} style={{
+            <button onClick={() => {
+              if (mode === "Idle") { showToast("Please select a mode before starting."); return; }
+              setRobotStatus("Paused");
+            }} style={{
               display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
               padding: "10px 22px", borderRadius: 8,
               border: robotStatus === "Paused" ? "none" : "1px solid #d1d5db",
@@ -206,7 +229,10 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             }}>
               <svg width="12" height="13" viewBox="0 0 12 13" fill="currentColor"><rect x="0.5" y="0.5" width="4" height="12" rx="1"/><rect x="7.5" y="0.5" width="4" height="12" rx="1"/></svg>Pause
             </button>
-            <button onClick={() => setRobotStatus("Idle")} style={{
+            <button onClick={() => {
+              setRobotStatus("Idle");
+              sendCommand("stop");
+            }} style={{
               display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
               padding: "10px 22px", borderRadius: 8, border: "none",
               backgroundColor: robotStatus === "Idle" ? "#ef4444" : "#e5e7eb",
@@ -231,7 +257,15 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
         </div>
 
         <div style={{ fontSize: 13, color: "#6b7280" }}>
-          Need Calibration?{" "}<a href="#" style={{ color: theme.accent, textDecoration: "none" }}>Calibrate here</a>
+          <button
+            onClick={() => {
+              setRobotPos({ x: 0, y: 0 });
+              showToast("Robot position reset to (0, 0).");
+            }}
+            style={{ color: theme.accent, background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: 0, fontWeight: 500 }}
+          >
+            Reset Position
+          </button>
         </div>
       </div>
 
@@ -292,9 +326,19 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
               </div>
             )}
             {!svgPlaced && (
-              <svg style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }} viewBox="0 0 100 100" preserveAspectRatio="none">
-                <image href={robotLogo} x={robotPos.x - 10} y={100 - robotPos.y - 5} width="20" height="10" preserveAspectRatio="xMidYMid meet" style={{ transition: "x 0.3s ease, y 0.3s ease" }} />
-              </svg>
+              <img
+                src={robotLogo}
+                style={{
+                  position: "absolute",
+                  width: 80,
+                  height: "auto",
+                  left: `${robotPos.x}%`,
+                  top: `${100 - robotPos.y}%`,
+                  transform: "translate(-50%, -50%)",
+                  transition: "left 0.3s ease, top 0.3s ease",
+                  pointerEvents: "none",
+                }}
+              />
             )}
           </div>
 
