@@ -32,7 +32,7 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
 
   const sendCommand = async (command) => {
     try {
-      const res = await fetch("http://localhost:5000/api/robot/commands", {
+      const res = await fetch("http://localhost:5001/api/robot/commands", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command }),
@@ -201,7 +201,13 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 10 }}>Robot Status</div>
           <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={() => { if (mode === "Idle") { showToast("Please select a mode before starting."); return; } setRobotStatus("Running"); }} style={{
+            <button onClick={() => {
+              if (mode === "Idle") { showToast("Please select a mode before starting."); return; }
+              setRobotStatus("Running");
+              if (mode === "Scan")  sendCommand("start scan");
+              if (mode === "Clean") sendCommand("start clean");
+              if (mode === "Write") sendCommand("start write");
+            }} style={{
               display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
               padding: "10px 0", width: 120, borderRadius: 8, border: "none",
               backgroundColor: robotStatus === "Running" ? "#22c55e" : "#e5e7eb",
@@ -210,7 +216,10 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             }}>
               <svg width="11" height="11" viewBox="0 0 11 12" fill="currentColor"><polygon points="0,0 11,6 0,12"/></svg>Start
             </button>
-            <button onClick={() => { if (mode === "Idle") { showToast("Please select a mode before starting."); return; } setRobotStatus("Paused"); }} style={{
+            <button onClick={() => {
+              if (mode === "Idle") { showToast("Please select a mode before starting."); return; }
+              setRobotStatus("Paused");
+            }} style={{
               display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
               padding: "10px 22px", borderRadius: 8,
               border: robotStatus === "Paused" ? "none" : "1px solid #d1d5db",
@@ -220,7 +229,10 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             }}>
               <svg width="12" height="13" viewBox="0 0 12 13" fill="currentColor"><rect x="0.5" y="0.5" width="4" height="12" rx="1"/><rect x="7.5" y="0.5" width="4" height="12" rx="1"/></svg>Pause
             </button>
-            <button onClick={() => setRobotStatus("Idle")} style={{
+            <button onClick={() => {
+              setRobotStatus("Idle");
+              sendCommand("stop");
+            }} style={{
               display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
               padding: "10px 22px", borderRadius: 8, border: "none",
               backgroundColor: robotStatus === "Idle" ? "#ef4444" : "#e5e7eb",
@@ -315,18 +327,18 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             )}
             {!svgPlaced && (
               <img
-              src={robotLogo}
-              style={{
-                position: "absolute",
-                width: 80,
-                height: "auto",
-                left: `${robotPos.x}%`,
-                top: `${100 - robotPos.y}%`,
-                transform: "translate(-50%, -50%)",
-                transition: "left 0.3s ease, top 0.3s ease",
-                pointerEvents: "none",
-              }}
-            />
+                src={robotLogo}
+                style={{
+                  position: "absolute",
+                  width: 80,
+                  height: "auto",
+                  left: `${robotPos.x}%`,
+                  top: `${100 - robotPos.y}%`,
+                  transform: "translate(-50%, -50%)",
+                  transition: "left 0.3s ease, top 0.3s ease",
+                  pointerEvents: "none",
+                }}
+              />
             )}
           </div>
 
