@@ -1,0 +1,329 @@
+#define stpX 2
+#define dirX 3
+#define stpY 8
+#define dirY 9
+#define MS1 4
+#define MS2 5
+#define MS3 6
+#define EN 7
+//Declare variables for functions
+char user_input;
+int i;
+int j;
+int state;
+int x = 0;
+int y = 1;
+
+/* directional arrays
+ * 
+ * These are set up in the following way 
+ * 
+ * {motor count, axis / directionX, direction / directionY}
+ */
+
+ //        single  Axis  Dir
+               //LOW = X              //LEFT/DOWN
+               //HIGH = Y              //RIGHT/UP
+bool u[3] = {LOW, HIGH, HIGH}; // 011
+bool d[3] = {LOW, HIGH, LOW}; //010
+bool l[3] = {LOW, LOW, LOW};
+bool r[3] = {LOW, LOW, HIGH};
+
+
+//                  xDir  yDir
+bool ur[4] = {HIGH, HIGH, HIGH};
+bool ru[4] = {HIGH, HIGH, HIGH};
+
+bool dr[4] = {HIGH, HIGH, LOW};
+bool rd[4] = {HIGH, HIGH, LOW};
+
+bool ul[4] = {HIGH, LOW, HIGH};
+bool lu[4] = {HIGH, LOW, HIGH};
+
+bool dl[4] = {HIGH, LOW, LOW};
+bool ld[4] = {HIGH, LOW, LOW};
+
+int pos[2] = {0, 0};
+
+
+//dual button pin declaration
+const int button1 = A0;  // SIG1 - green 
+const int button2 = A1;  // SIG2 - red 
+
+
+void setup() {
+  // put your setup code here, to run once:
+  pinMode(stpX, OUTPUT);
+  pinMode(dirX, OUTPUT);
+  pinMode(stpY, OUTPUT);
+  pinMode(dirY, OUTPUT);
+  pinMode(MS1, OUTPUT);
+  pinMode(MS2, OUTPUT);
+  pinMode(MS3, OUTPUT);
+  pinMode(EN, OUTPUT);
+
+  
+  //assigning input to buttons
+  pinMode(button1, INPUT);
+  pinMode(button2, INPUT);
+
+  
+  resetBEDPins(); //Set step, direction, microstep and enable pins to default states
+  Serial.begin(9600);
+  Serial.println("Motor Control Program v0.2");
+  Serial.println("");
+  Serial.println("Enter \"help\" for command list");
+  Serial.println("");
+}
+
+void resetBEDPins() {
+  digitalWrite(stpX, LOW);
+  digitalWrite(dirX, LOW);
+  digitalWrite(MS1, LOW);
+  digitalWrite(MS2, LOW);
+  digitalWrite(MS3, LOW);
+  digitalWrite(EN, HIGH);
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+
+    if (digitalRead(button1) == LOW) {
+      delay(50);  // debounce
+      if (digitalRead(button1) == LOW) {
+        digitalWrite(EN, LOW);   // enable motors
+        Serial.println("Button 1 pressed");
+        demo();
+        resetBEDPins();
+        delay(200);  // prevent repeat triggering
+      }
+     
+  }
+
+  if (digitalRead(button2) == LOW) {
+    
+    delay(50);  // debounce
+      if (digitalRead(button2) == LOW) {
+        digitalWrite(EN, LOW);   // enable motors
+        Serial.println("Button 2 pressed");
+        motorTest();
+        resetBEDPins();
+        delay(200);  // prevent repeat triggering
+      }
+  }
+  
+  
+  while(Serial.available()){
+    String input = Serial.readStringUntil('\n');
+    input.trim();
+    digitalWrite(EN, LOW); //Pull enable pin low to set FETs active and allow motor control
+
+    // Split input into two parts, command and data, based on the first space
+    
+    String cmd = input; // Command part
+    String data = input; // Data part
+
+    int spaceIndex = input.indexOf(' ');
+
+    if (spaceIndex != -1) {
+      cmd = input.substring(0, spaceIndex);    // Extract the command (before space)
+      data = input.substring(spaceIndex + 1);  // Extract the data (after space)
+    } else {
+      cmd = input;  // If no space, the whole input is just the command
+    }
+
+     
+    // Command handling
+    
+    if (cmd == "help") {
+      Serial.println("=== COMMAND LIST ===");
+      Serial.println(" - help       : Prints the command list in the serial monitor");
+      Serial.println(" - test       : Tests simultaneous and individual motor movement");
+      Serial.println(" - demo       : Runs the demo script for scanning the whole whiteboard");
+      Serial.println(" - goto x y   : Whiteboard carriage will go to the coordinates x and y, given as integers");
+    }
+    else if (cmd == "test") {
+      motorTest();    
+    }
+    else if (cmd == "demo") {
+      demo();
+    }
+    else if (cmd == "goto") {
+      // Parse x and y from data
+      int spaceIndex = data.indexOf(' ');
+
+      if (spaceIndex != -1) {
+        String xStr = data.substring(0, spaceIndex);       // Get x value (before space)
+        String yStr = data.substring(spaceIndex + 1);      // Get y value (after space)
+
+        int xPos = xStr.toInt();   // Convert to int
+        int yPos = yStr.toInt();   // Convert to int
+
+        goTo(xPos, yPos);  // Call goTo with parsed coordinates
+      } else {
+        Serial.println("Invalid format for 'goto'. Use: goto x y");
+      }
+    }
+    else {
+      Serial.println("Invalid option entered.");
+    }
+
+    resetBEDPins();
+  } 
+}
+
+void ds() {                // Sets the small delay time between HIGH and LOW and between steps
+  delayMicroseconds(1000); // CANNOT BE SMALLER THAN 500 MICROSECONDS
+}
+  
+/*
+ * Motor needs a delay of at least 500 microseconds between high and low in order to step.
+ * 
+ * When running a motor with the step() function, if inside a loop, a delay of 500 microseconds must be added 
+ * unless running a step(x,?) and a step step(y,?) in the same loop.
+ * 
+ */
+
+void step(bool dir[]) {
+
+  if (!dir[0]) { // if only one motor is addressed
+    if (!dir[1]) { // X axis
+      digitalWrite(dirX, dir[2]);
+      digitalWrite(stpX, HIGH);
+      ds();
+      digitalWrite(stpX, LOW);
+      ds();
+      if (dir[2]) {
+        pos[x]--;
+      } else {
+        pos[x]--;
+      }
+    } else { // Y axis
+      digitalWrite(dirX, dir[2]);
+      ds();
+      digitalWrite(stpX, HIGH);
+      ds();
+      digitalWrite(stpX, LOW);
+      if (dir[2]) {
+        pos[y]++;
+      } else {
+        pos[y]--;
+      }
+    }
+  } else { // if both motors addressed
+      digitalWrite(dirX, dir[1]);
+      digitalWrite(stpX, HIGH);
+      ds();
+      digitalWrite(stpX, LOW);
+      digitalWrite(dirY, dir[2]);
+      digitalWrite(stpY, HIGH);
+      ds();
+      digitalWrite(stpY, LOW);
+
+      if (dir[1]) {
+        pos[x]++;
+      } else {
+        pos[x]--;
+      }
+      if (dir[2]) {
+        pos[y]++;
+      } else {
+        pos[y]--;
+      }
+  }
+}
+
+void mve(bool dir[], int count) {
+  if (count > 0) {
+    for (i = 0; i<count; i++) {
+      step(dir);
+    }
+  }
+}
+
+/*
+
+ //                  xDir  yDir
+bool ur[4] = {HIGH, HIGH, HIGH};
+
+ */
+
+void goTo (int xPos, int yPos) {
+  bool d1[3] = {HIGH, LOW, LOW};
+  d1[1] = (pos[x] < xPos);
+  d1[2] = (pos[y] < yPos);
+  bool d2[3] = {LOW, LOW, LOW};
+  d2[1] = (abs(pos[y] - yPos) > abs(pos[x] - xPos));
+  d2[2] = (pos[x]<xPos || pos[y]<yPos);
+  mve(d1, min(abs(pos[x] - xPos), abs(pos[y] - yPos)));
+  mve(d2, max(abs(pos[x] - xPos), abs(pos[y] - yPos))-min(abs(pos[x] - xPos), abs(pos[y] - yPos)));
+}
+
+void traverseBoard (bool dir[], int holdTime) {
+  for(j=0; j<7; j++) {
+    mve(dir, 200);
+    delay(holdTime);
+  }
+}
+
+void moveDownLevel (int holdTime) {
+  mve(d, 200);
+  delay(holdTime);
+}
+
+void demo () {
+  Serial.println("Demo");
+
+  int holdTime = 500;
+
+  traverseBoard(r, holdTime);
+  moveDownLevel(holdTime);
+  traverseBoard(l, holdTime);
+  moveDownLevel(holdTime);
+  traverseBoard(r, holdTime);
+  moveDownLevel(holdTime);
+  traverseBoard(l, holdTime);
+  moveDownLevel(holdTime);
+  traverseBoard(r, holdTime);
+  
+  goTo(0,0);
+  
+}
+
+
+
+void motorTest () {
+  Serial.println("Simple Motor Movement Test");
+
+  //Tests possible combinations of x-y axis movement
+    
+  Serial.println(" - Testing X axis movement");
+
+    mve(r, 500);
+    delay(400);
+    mve(l, 500);
+    delay(400);
+      
+  Serial.println(" - Testing Y axis movement");
+  
+    mve(u, 500);
+    delay(400);
+    mve(d, 500);
+    delay(400);
+
+  Serial.println(" - Testing in-phase dual motor movement");
+
+    mve(ur, 500);
+    delay(400);
+    mve(dl, 500);
+    delay(400);
+
+  Serial.println(" - Testing out-of-phase dual motor movement");
+    
+    mve(ul, 500);
+    delay(400);
+    mve(dr, 500);
+
+  Serial.println("Testing Complete.");
+    
+}
