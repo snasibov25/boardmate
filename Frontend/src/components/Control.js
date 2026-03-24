@@ -30,6 +30,20 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
     setTimeout(() => setToast(null), 3000);
   };
 
+  const sendCommand = async (command) => {
+    try {
+      const res = await fetch("http://localhost:5000/api/robot/commands", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command }),
+      });
+      const data = await res.json();
+      console.log(data);
+    } catch (e) {
+      showToast("Failed to connect to robot.");
+    }
+  };
+
   const handleBoardClick = (e) => {
     if (svgPlaced) return;
     const rect = e.currentTarget.getBoundingClientRect();
