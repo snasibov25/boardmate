@@ -231,7 +231,15 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
         </div>
 
         <div style={{ fontSize: 13, color: "#6b7280" }}>
-          Need Calibration?{" "}<a href="#" style={{ color: theme.accent, textDecoration: "none" }}>Calibrate here</a>
+          <button
+            onClick={() => {
+              setRobotPos({ x: 0, y: 0 });
+              showToast("Robot position reset to (0, 0).");
+            }}
+            style={{ color: theme.accent, background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: 0, fontWeight: 500 }}
+          >
+            Reset Position
+          </button>
         </div>
       </div>
 
@@ -292,9 +300,19 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
               </div>
             )}
             {!svgPlaced && (
-              <svg style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }} viewBox="0 0 100 100" preserveAspectRatio="none">
-                <image href={robotLogo} x={robotPos.x - 10} y={100 - robotPos.y - 5} width="20" height="10" preserveAspectRatio="xMidYMid meet" style={{ transition: "x 0.3s ease, y 0.3s ease" }} />
-              </svg>
+              <img
+              src={robotLogo}
+              style={{
+                position: "absolute",
+                width: 80,
+                height: "auto",
+                left: `${robotPos.x}%`,
+                top: `${100 - robotPos.y}%`,
+                transform: "translate(-50%, -50%)",
+                transition: "left 0.3s ease, top 0.3s ease",
+                pointerEvents: "none",
+              }}
+            />
             )}
           </div>
 

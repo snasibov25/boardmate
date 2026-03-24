@@ -56,32 +56,16 @@ export default function BoardMate() {
         </div>
 
         {/* Class badge in header */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{
-            backgroundColor: theme.bg,
-            border: `1px solid ${theme.border}`,
-            borderRadius: 20,
-            padding: "4px 12px",
-            fontSize: 12.5,
-            fontWeight: 600,
-            color: theme.label,
-          }}>
-            {currentClass} · {currentRobot}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-            <div style={{
-              width: 30, height: 30, borderRadius: "50%",
-              backgroundColor: "#d1d5db",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="#9ca3af">
-                <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-              </svg>
-            </div>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </div>
+        <div style={{
+          backgroundColor: theme.bg,
+          border: `1px solid ${theme.border}`,
+          borderRadius: 20,
+          padding: "4px 12px",
+          fontSize: 12.5,
+          fontWeight: 600,
+          color: theme.label,
+        }}>
+          {currentClass} · {currentRobot}
         </div>
       </div>
 
