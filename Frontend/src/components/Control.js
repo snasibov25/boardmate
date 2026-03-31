@@ -25,7 +25,6 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
   const [showDocsModal, setShowDocsModal] = useState(false);
   const [showSwitchModal, setShowSwitchModal] = useState(false);
   const [showCleanModal, setShowCleanModal] = useState(false);
-
   const [uploadedSVG, setUploadedSVG] = useState(null);
   const [showPlaceModal, setShowPlaceModal] = useState(false);
   const [svgPlaced, setSvgPlaced] = useState(false);
@@ -33,7 +32,6 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
   const [svgPos, setSvgPos] = useState({ x: 0, y: 0 });
   const [svgSize, setSvgSize] = useState({ w: 120, h: 120 });
   const [selectedDocName, setSelectedDocName] = useState(null);
-
   const [isAnimating, setIsAnimating] = useState(false);
   const [displayPos, setDisplayPos] = useState({ x: 50, y: 50 });
 
@@ -67,10 +65,8 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
     }
   };
 
-  // Poll backend for task completion
   useEffect(() => {
     if (robotStatus !== "Running") return;
-
     const poll = setInterval(async () => {
       try {
         const res = await fetch("http://localhost:5001/api/robot/status");
@@ -86,31 +82,33 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
         }
       } catch (e) {}
     }, 1500);
-
     return () => clearInterval(poll);
   }, [robotStatus]);
+
+  const cancelRunning = () => {
+    if (robotStatus === "Running") {
+      stopAnimation();
+      setRobotStatus("Idle");
+      sendCommand("stop");
+    }
+  };
 
   const drawTrail = () => {
     const canvas = trailCanvasRef.current;
     const board = boardRef.current;
     if (!canvas || !board) return;
-
     const w = board.offsetWidth;
     const h = board.offsetHeight;
     canvas.width = w;
     canvas.height = h;
-
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, w, h);
-
     const pts = trailPointsRef.current;
     if (pts.length < 2) return;
-
     const toPixel = (p) => ({
       px: (p.x / 100) * w,
       py: ((100 - p.y) / 100) * h,
     });
-
     for (let i = 1; i < pts.length; i++) {
       const a = toPixel(pts[i - 1]);
       const b = toPixel(pts[i]);
@@ -123,7 +121,6 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
       ctx.lineCap = "round";
       ctx.stroke();
     }
-
     pts.forEach((p, i) => {
       if (i === pts.length - 1) return;
       const { px, py } = toPixel(p);
@@ -146,33 +143,26 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
     const path = generateCleanPath();
     trailPointsRef.current = [];
     setIsAnimating(true);
-
     let segmentIndex = 0;
     let progress = 0;
     const SPEED = 0.0006;
     let lastTime = null;
-
     const refDist = Math.sqrt(
       (path[1].x - path[0].x) ** 2 + (path[1].y - path[0].y) ** 2
     );
-
     const tick = (timestamp) => {
       if (!lastTime) lastTime = timestamp;
       const delta = timestamp - lastTime;
       lastTime = timestamp;
-
       const from = path[segmentIndex];
       const to = path[segmentIndex + 1];
       if (!from || !to) return;
-
       const segDist = Math.sqrt((to.x - from.x) ** 2 + (to.y - from.y) ** 2);
       const speedScale = segDist / refDist;
       progress += (SPEED * delta) / speedScale;
-
       if (progress >= 1) {
         progress = 0;
         segmentIndex++;
-
         if (segmentIndex >= path.length - 1) {
           const last = path[path.length - 1];
           setDisplayPos({ x: last.x, y: last.y });
@@ -186,26 +176,19 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
           }, 600);
           return;
         }
-
         trailPointsRef.current = [...path.slice(0, segmentIndex + 1)];
       }
-
       const f = path[segmentIndex];
       const t = path[segmentIndex + 1];
       if (!f || !t) return;
-
       const x = f.x + (t.x - f.x) * progress;
       const y = f.y + (t.y - f.y) * progress;
-
       setDisplayPos({ x, y });
       setRobotPos({ x: Math.round(x), y: Math.round(y) });
-
       trailPointsRef.current = [...path.slice(0, segmentIndex + 1), { x, y }];
       drawTrail();
-
       animRef.current = requestAnimationFrame(tick);
     };
-
     animRef.current = requestAnimationFrame(tick);
   };
 
@@ -327,7 +310,6 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
       display: "flex", flexDirection: "column", gap: 28,
       transition: "border-color 0.4s ease",
     }}>
-
       <div>
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -341,10 +323,8 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
           </div>
           <button onClick={() => setShowSwitchModal(true)} style={{ fontSize: 13, color: theme.accent, background: "none", border: "none", cursor: "pointer", fontWeight: 500 }}>Switch →</button>
         </div>
-
         <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 4 }}>Robot Controls</div>
         <div style={{ color: "#6b7280", fontSize: 13.5, marginBottom: 26 }}>Select operation mode and control robot status</div>
-
         <div style={{ marginBottom: 22 }}>
           <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 10 }}>Operation Mode</div>
           <div style={{ display: "flex", gap: 10 }}>
@@ -355,8 +335,18 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
               { label: "Idle",  color: "#9ca3af", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="2" x2="12" y2="12"/></svg> },
             ].map(({ label, color, icon }) => (
               <button key={label} onClick={() => {
-                if (label === "Write" && mode !== "Write") { setMode("Idle"); setShowWriteModal(true); return; }
-                if (label === "Clean") { setShowCleanModal(true); return; }
+                if (label === "Write" && mode !== "Write") {
+                  cancelRunning();
+                  setMode("Idle");
+                  setShowWriteModal(true);
+                  return;
+                }
+                if (label === "Clean") {
+                  cancelRunning();
+                  setShowCleanModal(true);
+                  return;
+                }
+                cancelRunning();
                 const newMode = mode === label ? "Idle" : label;
                 setMode(newMode);
                 showToast(newMode === "Idle" ? "Currently Idle. Please select a mode." : `Mode set to ${newMode}. Press Start to run.`);
@@ -370,7 +360,6 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             ))}
           </div>
         </div>
-
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 10 }}>Robot Status</div>
           <div style={{ display: "flex", gap: 10 }}>
@@ -386,7 +375,9 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
               padding: "10px 0", width: 120, borderRadius: 8, border: "none",
               backgroundColor: robotStatus === "Running" ? "#22c55e" : "#e5e7eb",
               color: robotStatus === "Running" ? "#fff" : "#6b7280",
-              fontWeight: 600, fontSize: 14, cursor: "pointer", outline: "none", transition: "all 0.2s",
+              fontWeight: 600, fontSize: 14, cursor: "pointer", outline: "none",
+              transition: "background-color 0.2s, color 0.2s",
+              animation: robotStatus === "Running" ? "fadeDown 4s ease-in-out forwards" : "none",
             }}>
               <svg width="11" height="11" viewBox="0 0 11 12" fill="currentColor"><polygon points="0,0 11,6 0,12"/></svg>Start
             </button>
@@ -422,7 +413,6 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             </button>
           </div>
         </div>
-
         <div style={{
           display: "flex", alignItems: "center", gap: 8,
           backgroundColor: "#f9fafb", border: "1px solid #e5e7eb",
@@ -437,7 +427,6 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             {isAnimating && <span style={{ marginLeft: 8, fontSize: 12, color: "#22c55e", fontWeight: 500 }}>· Running...</span>}
           </span>
         </div>
-
         <div style={{ fontSize: 13, color: "#6b7280" }}>
           <button onClick={() => {
             stopAnimation();
@@ -471,7 +460,6 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             )}
           </div>
         </div>
-
         <div style={{ position: "relative", paddingLeft: 28, paddingBottom: 22 }}>
           {[100, 80, 60, 40, 20, 0].map(val => (
             <div key={`y${val}`} style={{
@@ -479,7 +467,6 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
               fontSize: 10, color: "#9ca3af", lineHeight: 1, width: 22, textAlign: "right",
             }}>{val}</div>
           ))}
-
           <div
             ref={boardRef}
             onClick={handleBoardClick}
@@ -492,12 +479,10 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             }}
           >
             <img style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} alt="" />
-
             <canvas
               ref={trailCanvasRef}
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 2 }}
             />
-
             {svgPlaced && svgMode === "auto" && uploadedSVG && (
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
                 <div style={{ width: "100%", height: "100%" }} dangerouslySetInnerHTML={{ __html: uploadedSVG.replace(/<svg/, '<svg preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%"') }} />
@@ -512,7 +497,6 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
                 {handleDot("100%", "100%", "se-resize", "se")}
               </div>
             )}
-
             {!svgPlaced && (
               <img
                 src={robotLogo}
@@ -531,7 +515,6 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
               />
             )}
           </div>
-
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
             {[0, 20, 40, 60, 80, 100].map(val => (
               <div key={`x${val}`} style={{ fontSize: 10, color: "#9ca3af" }}>{val}</div>
@@ -654,7 +637,7 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             <button onClick={handleManual} style={{ width: "100%", padding: "16px", border: "1px solid #e5e7eb", borderRadius: 10, backgroundColor: "#f9fafb", cursor: "pointer", display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 24, textAlign: "left" }}>
               <div style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: "#ffedd5", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round"><path d="M5 9l4-4 4 4M9 5v14M15 9l4 4-4 4M19 13H5"/></svg>
-              </div>pip3 install flask flask-cors requests
+              </div>
               <div>
                 <div style={{ fontWeight: 600, fontSize: 14, color: "#111827", marginBottom: 3 }}>Manual Place</div>
                 <div style={{ fontSize: 12, color: "#9ca3af" }}>Drag to move, drag corners to resize</div>
@@ -715,6 +698,10 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
         @keyframes slideUp {
           from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeDown {
+          from { opacity: 1; }
+          to   { opacity: 0.35; }
         }
       `}</style>
     </div>
