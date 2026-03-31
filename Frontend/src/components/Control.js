@@ -45,7 +45,6 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
     }
   };
 
-  // Poll backend for task completion
   useEffect(() => {
     if (robotStatus !== "Running") return;
 
@@ -64,6 +63,13 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
 
     return () => clearInterval(poll);
   }, [robotStatus]);
+
+  const cancelRunning = () => {
+    if (robotStatus === "Running") {
+      setRobotStatus("Idle");
+      sendCommand("stop");
+    }
+  };
 
   const handleBoardClick = (e) => {
     if (svgPlaced) return;
@@ -200,8 +206,18 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
               { label: "Idle",  color: "#9ca3af", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="2" x2="12" y2="12"/></svg> },
             ].map(({ label, color, icon }) => (
               <button key={label} onClick={() => {
-                if (label === "Write" && mode !== "Write") { setMode("Idle"); setShowWriteModal(true); return; }
-                if (label === "Clean") { setShowCleanModal(true); return; }
+                if (label === "Write" && mode !== "Write") {
+                  cancelRunning();
+                  setMode("Idle");
+                  setShowWriteModal(true);
+                  return;
+                }
+                if (label === "Clean") {
+                  cancelRunning();
+                  setShowCleanModal(true);
+                  return;
+                }
+                cancelRunning();
                 const newMode = mode === label ? "Idle" : label;
                 setMode(newMode);
                 showToast(newMode === "Idle" ? "Currently Idle. Please select a mode." : `Mode set to ${newMode}. Press Start to run.`);
@@ -231,7 +247,8 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
               padding: "10px 0", width: 120, borderRadius: 8, border: "none",
               backgroundColor: robotStatus === "Running" ? "#22c55e" : "#e5e7eb",
               color: robotStatus === "Running" ? "#fff" : "#6b7280",
-              fontWeight: 600, fontSize: 14, cursor: "pointer", outline: "none", transition: "all 0.2s",
+              fontWeight: 600, fontSize: 14, cursor: "pointer", outline: "none", transition: "background-color 0.2s, color 0.2s",
+              animation: robotStatus === "Running" ? "fadeDown 4s ease-in-out forwards" : "none",
             }}>
               <svg width="11" height="11" viewBox="0 0 11 12" fill="currentColor"><polygon points="0,0 11,6 0,12"/></svg>Start
             </button>
@@ -539,6 +556,10 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
         @keyframes slideUp {
           from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeDown {
+          from { opacity: 1; }
+          to   { opacity: 0.35; }
         }
       `}</style>
     </div>
