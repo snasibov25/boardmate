@@ -1,5 +1,21 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import robotLogo from "../asset/boardmate.jpg";
+
+function generateCleanPath() {
+  const steps = [];
+  const rows = 6;
+  for (let i = 0; i < rows; i++) {
+    const y = 95 - i * (90 / (rows - 1));
+    if (i % 2 === 0) {
+      steps.push({ x: 5, y });
+      steps.push({ x: 95, y });
+    } else {
+      steps.push({ x: 95, y });
+      steps.push({ x: 5, y });
+    }
+  }
+  return steps;
+}
 
 export default function Control({ robotPos, setRobotPos, docs, currentClass, setCurrentClass, currentRobot, setCurrentRobot, theme }) {
   const [mode, setMode] = useState("Idle");
@@ -8,6 +24,7 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
   const [showWriteModal, setShowWriteModal] = useState(false);
   const [showDocsModal, setShowDocsModal] = useState(false);
   const [showSwitchModal, setShowSwitchModal] = useState(false);
+  const [showCleanModal, setShowCleanModal] = useState(false);
 
   const [uploadedSVG, setUploadedSVG] = useState(null);
   const [showPlaceModal, setShowPlaceModal] = useState(false);
@@ -17,6 +34,12 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
   const [svgSize, setSvgSize] = useState({ w: 120, h: 120 });
   const [selectedDocName, setSelectedDocName] = useState(null);
 
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [displayPos, setDisplayPos] = useState({ x: 50, y: 50 });
+
+  const trailCanvasRef = useRef(null);
+  const trailPointsRef = useRef([]);
+  const animRef = useRef(null);
   const boardRef = useRef(null);
   const dragging = useRef(false);
   const resizing = useRef(false);
@@ -44,12 +67,165 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
     }
   };
 
+  // Poll backend for task completion
+  useEffect(() => {
+    if (robotStatus !== "Running") return;
+
+    const poll = setInterval(async () => {
+      try {
+        const res = await fetch("http://localhost:5001/api/robot/status");
+        const data = await res.json();
+        if (data.status === "done" || data.status === "error") {
+          clearInterval(poll);
+          stopAnimation();
+          trailPointsRef.current = [];
+          drawTrail();
+          setRobotStatus("Idle");
+          setMode("Idle");
+          showToast(data.status === "done" ? "Task complete!" : "Error occurred.");
+        }
+      } catch (e) {}
+    }, 1500);
+
+    return () => clearInterval(poll);
+  }, [robotStatus]);
+
+  const drawTrail = () => {
+    const canvas = trailCanvasRef.current;
+    const board = boardRef.current;
+    if (!canvas || !board) return;
+
+    const w = board.offsetWidth;
+    const h = board.offsetHeight;
+    canvas.width = w;
+    canvas.height = h;
+
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, w, h);
+
+    const pts = trailPointsRef.current;
+    if (pts.length < 2) return;
+
+    const toPixel = (p) => ({
+      px: (p.x / 100) * w,
+      py: ((100 - p.y) / 100) * h,
+    });
+
+    for (let i = 1; i < pts.length; i++) {
+      const a = toPixel(pts[i - 1]);
+      const b = toPixel(pts[i]);
+      const alpha = 0.05 + (i / pts.length) * 0.25;
+      ctx.beginPath();
+      ctx.moveTo(a.px, a.py);
+      ctx.lineTo(b.px, b.py);
+      ctx.strokeStyle = `rgba(34,197,94,${alpha})`;
+      ctx.lineWidth = 3;
+      ctx.lineCap = "round";
+      ctx.stroke();
+    }
+
+    pts.forEach((p, i) => {
+      if (i === pts.length - 1) return;
+      const { px, py } = toPixel(p);
+      const alpha = 0.05 + (i / pts.length) * 0.2;
+      ctx.beginPath();
+      ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(34,197,94,${alpha})`;
+      ctx.fill();
+    });
+  };
+
+  const stopAnimation = () => {
+    if (animRef.current) cancelAnimationFrame(animRef.current);
+    animRef.current = null;
+    setIsAnimating(false);
+  };
+
+  const animateCleanPath = () => {
+    if (isAnimating) return;
+    const path = generateCleanPath();
+    trailPointsRef.current = [];
+    setIsAnimating(true);
+
+    let segmentIndex = 0;
+    let progress = 0;
+    const SPEED = 0.0006;
+    let lastTime = null;
+
+    const refDist = Math.sqrt(
+      (path[1].x - path[0].x) ** 2 + (path[1].y - path[0].y) ** 2
+    );
+
+    const tick = (timestamp) => {
+      if (!lastTime) lastTime = timestamp;
+      const delta = timestamp - lastTime;
+      lastTime = timestamp;
+
+      const from = path[segmentIndex];
+      const to = path[segmentIndex + 1];
+      if (!from || !to) return;
+
+      const segDist = Math.sqrt((to.x - from.x) ** 2 + (to.y - from.y) ** 2);
+      const speedScale = segDist / refDist;
+      progress += (SPEED * delta) / speedScale;
+
+      if (progress >= 1) {
+        progress = 0;
+        segmentIndex++;
+
+        if (segmentIndex >= path.length - 1) {
+          const last = path[path.length - 1];
+          setDisplayPos({ x: last.x, y: last.y });
+          setRobotPos({ x: last.x, y: last.y });
+          trailPointsRef.current = [...path];
+          drawTrail();
+          setTimeout(() => {
+            trailPointsRef.current = [];
+            drawTrail();
+            setIsAnimating(false);
+          }, 600);
+          return;
+        }
+
+        trailPointsRef.current = [...path.slice(0, segmentIndex + 1)];
+      }
+
+      const f = path[segmentIndex];
+      const t = path[segmentIndex + 1];
+      if (!f || !t) return;
+
+      const x = f.x + (t.x - f.x) * progress;
+      const y = f.y + (t.y - f.y) * progress;
+
+      setDisplayPos({ x, y });
+      setRobotPos({ x: Math.round(x), y: Math.round(y) });
+
+      trailPointsRef.current = [...path.slice(0, segmentIndex + 1), { x, y }];
+      drawTrail();
+
+      animRef.current = requestAnimationFrame(tick);
+    };
+
+    animRef.current = requestAnimationFrame(tick);
+  };
+
+  useEffect(() => {
+    const canvas = trailCanvasRef.current;
+    const board = boardRef.current;
+    if (!canvas || !board) return;
+    canvas.width = board.offsetWidth;
+    canvas.height = board.offsetHeight;
+  }, []);
+
   const handleBoardClick = (e) => {
-    if (svgPlaced) return;
+    if (svgPlaced || isAnimating) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const x = Math.round((e.clientX - rect.left) / rect.width * 100);
     const y = Math.round((1 - (e.clientY - rect.top) / rect.height) * 100);
-    setRobotPos({ x: Math.min(100, Math.max(0, x)), y: Math.min(100, Math.max(0, y)) });
+    const nx = Math.min(100, Math.max(0, x));
+    const ny = Math.min(100, Math.max(0, y));
+    setRobotPos({ x: nx, y: ny });
+    setDisplayPos({ x: nx, y: ny });
   };
 
   const loadSVGFromUrl = async (url, name) => {
@@ -152,9 +328,7 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
       transition: "border-color 0.4s ease",
     }}>
 
-      {/* Robot Controls */}
       <div>
-        {/* Session Info */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           backgroundColor: theme.bg, border: `1px solid ${theme.border}`,
@@ -171,7 +345,6 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
         <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 4 }}>Robot Controls</div>
         <div style={{ color: "#6b7280", fontSize: 13.5, marginBottom: 26 }}>Select operation mode and control robot status</div>
 
-        {/* Operation Mode */}
         <div style={{ marginBottom: 22 }}>
           <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 10 }}>Operation Mode</div>
           <div style={{ display: "flex", gap: 10 }}>
@@ -183,30 +356,31 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             ].map(({ label, color, icon }) => (
               <button key={label} onClick={() => {
                 if (label === "Write" && mode !== "Write") { setMode("Idle"); setShowWriteModal(true); return; }
+                if (label === "Clean") { setShowCleanModal(true); return; }
                 const newMode = mode === label ? "Idle" : label;
                 setMode(newMode);
                 showToast(newMode === "Idle" ? "Currently Idle. Please select a mode." : `Mode set to ${newMode}. Press Start to run.`);
               }} style={{
                 display: "flex", alignItems: "center", gap: 7, padding: "9px 22px", borderRadius: 8,
-                border: mode === label ? "none" : "1px solid #d1d5db",
-                backgroundColor: mode === label ? color : "#fff",
-                color: mode === label ? "#fff" : "#374151",
+                border: (mode === label || (label === "Clean" && mode === "Clean+Scan")) ? "none" : "1px solid #d1d5db",
+                backgroundColor: (mode === label || (label === "Clean" && mode === "Clean+Scan")) ? color : "#fff",
+                color: (mode === label || (label === "Clean" && mode === "Clean+Scan")) ? "#fff" : "#374151",
                 fontWeight: 500, fontSize: 14, cursor: "pointer", outline: "none", transition: "all 0.2s",
               }}>{icon}{label}</button>
             ))}
           </div>
         </div>
 
-        {/* Robot Status */}
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 10 }}>Robot Status</div>
           <div style={{ display: "flex", gap: 10 }}>
             <button onClick={() => {
               if (mode === "Idle") { showToast("Please select a mode before starting."); return; }
               setRobotStatus("Running");
-              if (mode === "Scan")  sendCommand("start scan");
-              if (mode === "Clean") sendCommand("start clean");
-              if (mode === "Write") sendCommand("start write");
+              if (mode === "Scan")       { sendCommand("start scan"); animateCleanPath(); }
+              if (mode === "Clean")      { sendCommand("start clean"); animateCleanPath(); }
+              if (mode === "Clean+Scan") { sendCommand("start clean scan"); animateCleanPath(); }
+              if (mode === "Write")      sendCommand("start write");
             }} style={{
               display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
               padding: "10px 0", width: 120, borderRadius: 8, border: "none",
@@ -218,6 +392,7 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             </button>
             <button onClick={() => {
               if (mode === "Idle") { showToast("Please select a mode before starting."); return; }
+              stopAnimation();
               setRobotStatus("Paused");
             }} style={{
               display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
@@ -230,7 +405,11 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
               <svg width="12" height="13" viewBox="0 0 12 13" fill="currentColor"><rect x="0.5" y="0.5" width="4" height="12" rx="1"/><rect x="7.5" y="0.5" width="4" height="12" rx="1"/></svg>Pause
             </button>
             <button onClick={() => {
+              stopAnimation();
               setRobotStatus("Idle");
+              setMode("Idle");
+              trailPointsRef.current = [];
+              drawTrail();
               sendCommand("stop");
             }} style={{
               display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
@@ -244,7 +423,6 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
           </div>
         </div>
 
-        {/* System Status */}
         <div style={{
           display: "flex", alignItems: "center", gap: 8,
           backgroundColor: "#f9fafb", border: "1px solid #e5e7eb",
@@ -253,23 +431,28 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.8">
             <circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4" strokeLinecap="round"/>
           </svg>
-          <span style={{ fontSize: 13.5, color: "#374151" }}>System Status: Robot: <strong>{robotStatus}</strong></span>
+          <span style={{ fontSize: 13.5, color: "#374151" }}>
+            System Status: Robot: <strong>{robotStatus}</strong>
+            {mode === "Clean+Scan" && <span style={{ marginLeft: 8, fontSize: 12, color: "#22c55e", fontWeight: 500 }}>· Clean + Scan</span>}
+            {isAnimating && <span style={{ marginLeft: 8, fontSize: 12, color: "#22c55e", fontWeight: 500 }}>· Running...</span>}
+          </span>
         </div>
 
         <div style={{ fontSize: 13, color: "#6b7280" }}>
-          <button
-            onClick={() => {
-              setRobotPos({ x: 0, y: 0 });
-              showToast("Robot position reset to (0, 0).");
-            }}
-            style={{ color: theme.accent, background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: 0, fontWeight: 500 }}
-          >
+          <button onClick={() => {
+            stopAnimation();
+            setRobotPos({ x: 0, y: 0 });
+            setDisplayPos({ x: 0, y: 0 });
+            trailPointsRef.current = [];
+            drawTrail();
+            showToast("Robot position reset to (0, 0).");
+          }} style={{ color: theme.accent, background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: 0, fontWeight: 500 }}>
             Reset Position
           </button>
         </div>
       </div>
 
-      {/* Robot Position */}
+      {/* Robot Position Board */}
       <div>
         <div style={{ borderTop: "1px solid #e5e7eb", marginBottom: 24 }} />
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
@@ -278,15 +461,12 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             {svgPlaced ? (
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 12, color: "#6b7280" }}>{selectedDocName}</span>
-                <button onClick={handleClearSVG} style={{
-                  fontSize: 12, color: "#ef4444", background: "none",
-                  border: "1px solid #fca5a5", borderRadius: 6, padding: "3px 10px", cursor: "pointer",
-                }}>Clear SVG</button>
+                <button onClick={handleClearSVG} style={{ fontSize: 12, color: "#ef4444", background: "none", border: "1px solid #fca5a5", borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}>Clear SVG</button>
               </div>
             ) : (
               <div style={{ fontSize: 13, color: "#6b7280" }}>
-                X: <strong style={{ color: "#111827" }}>{robotPos.x}</strong>
-                &nbsp;&nbsp;Y: <strong style={{ color: "#111827" }}>{robotPos.y}</strong>
+                X: <strong style={{ color: "#111827" }}>{Math.round(displayPos.x)}</strong>
+                &nbsp;&nbsp;Y: <strong style={{ color: "#111827" }}>{Math.round(displayPos.y)}</strong>
               </div>
             )}
           </div>
@@ -300,24 +480,31 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             }}>{val}</div>
           ))}
 
-          <div ref={boardRef} onClick={handleBoardClick} style={{
-            width: "100%", height: boardHeight, borderRadius: 8, overflow: "hidden",
-            border: `2px solid ${theme.border}`, boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
-            position: "relative", cursor: svgPlaced && svgMode === "manual" ? "default" : "crosshair",
-            backgroundColor: "#fafafa", transition: "border-color 0.4s ease",
-          }}>
-            <img style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          <div
+            ref={boardRef}
+            onClick={handleBoardClick}
+            style={{
+              width: "100%", height: boardHeight, borderRadius: 8, overflow: "hidden",
+              border: `2px solid ${theme.border}`, boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+              position: "relative",
+              cursor: isAnimating ? "default" : (svgPlaced && svgMode === "manual" ? "default" : "crosshair"),
+              backgroundColor: "#fafafa", transition: "border-color 0.4s ease",
+            }}
+          >
+            <img style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} alt="" />
+
+            <canvas
+              ref={trailCanvasRef}
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 2 }}
+            />
+
             {svgPlaced && svgMode === "auto" && uploadedSVG && (
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
                 <div style={{ width: "100%", height: "100%" }} dangerouslySetInnerHTML={{ __html: uploadedSVG.replace(/<svg/, '<svg preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%"') }} />
               </div>
             )}
             {svgPlaced && svgMode === "manual" && uploadedSVG && (
-              <div onMouseDown={handleSVGMouseDown} style={{
-                position: "absolute", left: svgPos.x, top: svgPos.y,
-                width: svgSize.w, height: svgSize.h,
-                cursor: "grab", userSelect: "none", outline: `1.5px dashed ${theme.accent}`,
-              }}>
+              <div onMouseDown={handleSVGMouseDown} style={{ position: "absolute", left: svgPos.x, top: svgPos.y, width: svgSize.w, height: svgSize.h, cursor: "grab", userSelect: "none", outline: `1.5px dashed ${theme.accent}` }}>
                 <div style={{ width: "100%", height: "100%", pointerEvents: "none" }} dangerouslySetInnerHTML={{ __html: uploadedSVG.replace(/<svg/, `<svg style="width:${svgSize.w}px;height:${svgSize.h}px"`) }} />
                 {handleDot("0%", "0%", "nw-resize", "nw")}
                 {handleDot("0%", "100%", "ne-resize", "ne")}
@@ -325,18 +512,21 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
                 {handleDot("100%", "100%", "se-resize", "se")}
               </div>
             )}
+
             {!svgPlaced && (
               <img
                 src={robotLogo}
+                alt="robot"
                 style={{
                   position: "absolute",
                   width: 80,
                   height: "auto",
-                  left: `${robotPos.x}%`,
-                  top: `${100 - robotPos.y}%`,
+                  left: `${displayPos.x}%`,
+                  top: `${100 - displayPos.y}%`,
                   transform: "translate(-50%, -50%)",
-                  transition: "left 0.3s ease, top 0.3s ease",
+                  transition: "none",
                   pointerEvents: "none",
+                  zIndex: 5,
                 }}
               />
             )}
@@ -359,6 +549,38 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
           zIndex: 200, maxWidth: 320, animation: "slideUp 0.25s ease",
         }}>
           <span>💡</span><span>{toast}</span>
+        </div>
+      )}
+
+      {/* Clean Modal */}
+      {showCleanModal && (
+        <div onClick={() => setShowCleanModal(false)} style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300 }}>
+          <div onClick={e => e.stopPropagation()} style={{ backgroundColor: "#fff", borderRadius: 14, padding: "32px", width: 420, boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
+            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 6 }}>Clean Mode</div>
+            <div style={{ color: "#6b7280", fontSize: 13.5, marginBottom: 24 }}>Would you also like to scan while cleaning?</div>
+            <button onClick={() => { setMode("Clean+Scan"); setShowCleanModal(false); showToast("Mode set to Clean + Scan. Press Start to run."); }} style={{ width: "100%", padding: "16px", border: "1px solid #e5e7eb", borderRadius: 10, backgroundColor: "#f9fafb", cursor: "pointer", display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 12, textAlign: "left" }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 20H7L3 16l13-13 4 4-3.5 3.5" stroke="#22c55e"/><path d="M6 17l4-4" stroke="#22c55e"/>
+                  <path d="M4 8V5a1 1 0 011-1h3M4 16v3a1 1 0 001 1h3M16 4h3a1 1 0 011 1v3M16 20h3a1 1 0 001-1v-3" stroke="#3b82f6"/>
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: "#111827", marginBottom: 3 }}>Clean + Scan</div>
+                <div style={{ fontSize: 12, color: "#9ca3af" }}>Clean the board and scan simultaneously</div>
+              </div>
+            </button>
+            <button onClick={() => { setMode("Clean"); setShowCleanModal(false); showToast("Mode set to Clean. Press Start to run."); }} style={{ width: "100%", padding: "16px", border: "1px solid #e5e7eb", borderRadius: 10, backgroundColor: "#f9fafb", cursor: "pointer", display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 24, textAlign: "left" }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 20H7L3 16l13-13 4 4-3.5 3.5"/><path d="M6 17l4-4"/></svg>
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: "#111827", marginBottom: 3 }}>Clean Only</div>
+                <div style={{ fontSize: 12, color: "#9ca3af" }}>Just clean the board without scanning</div>
+              </div>
+            </button>
+            <button onClick={() => setShowCleanModal(false)} style={{ width: "100%", padding: "10px", border: "1px solid #d1d5db", borderRadius: 8, backgroundColor: "#fff", color: "#6b7280", fontSize: 14, cursor: "pointer" }}>Cancel</button>
+          </div>
         </div>
       )}
 
@@ -432,7 +654,7 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             <button onClick={handleManual} style={{ width: "100%", padding: "16px", border: "1px solid #e5e7eb", borderRadius: 10, backgroundColor: "#f9fafb", cursor: "pointer", display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 24, textAlign: "left" }}>
               <div style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: "#ffedd5", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round"><path d="M5 9l4-4 4 4M9 5v14M15 9l4 4-4 4M19 13H5"/></svg>
-              </div>
+              </div>pip3 install flask flask-cors requests
               <div>
                 <div style={{ fontWeight: 600, fontSize: 14, color: "#111827", marginBottom: 3 }}>Manual Place</div>
                 <div style={{ fontSize: 12, color: "#9ca3af" }}>Drag to move, drag corners to resize</div>
