@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import robotLogo from "../asset/boardmate.jpg";
 
 export default function Control({ robotPos, setRobotPos, docs, currentClass, setCurrentClass, currentRobot, setCurrentRobot, theme }) {
@@ -8,6 +8,7 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
   const [showWriteModal, setShowWriteModal] = useState(false);
   const [showDocsModal, setShowDocsModal] = useState(false);
   const [showSwitchModal, setShowSwitchModal] = useState(false);
+  const [showCleanModal, setShowCleanModal] = useState(false);
 
   const [uploadedSVG, setUploadedSVG] = useState(null);
   const [showPlaceModal, setShowPlaceModal] = useState(false);
@@ -41,6 +42,32 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
       console.log(data);
     } catch (e) {
       showToast("Failed to connect to robot.");
+    }
+  };
+
+  useEffect(() => {
+    if (robotStatus !== "Running") return;
+
+    const poll = setInterval(async () => {
+      try {
+        const res = await fetch("http://localhost:5001/api/robot/status");
+        const data = await res.json();
+        if (data.status === "done" || data.status === "error") {
+          clearInterval(poll);
+          setRobotStatus("Idle");
+          setMode("Idle");
+          showToast(data.status === "done" ? "Task complete!" : "Error occurred.");
+        }
+      } catch (e) {}
+    }, 1500);
+
+    return () => clearInterval(poll);
+  }, [robotStatus]);
+
+  const cancelRunning = () => {
+    if (robotStatus === "Running") {
+      setRobotStatus("Idle");
+      sendCommand("stop");
     }
   };
 
@@ -152,9 +179,7 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
       transition: "border-color 0.4s ease",
     }}>
 
-      {/* Robot Controls */}
       <div>
-        {/* Session Info */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           backgroundColor: theme.bg, border: `1px solid ${theme.border}`,
@@ -171,7 +196,6 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
         <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 4 }}>Robot Controls</div>
         <div style={{ color: "#6b7280", fontSize: 13.5, marginBottom: 26 }}>Select operation mode and control robot status</div>
 
-        {/* Operation Mode */}
         <div style={{ marginBottom: 22 }}>
           <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 10 }}>Operation Mode</div>
           <div style={{ display: "flex", gap: 10 }}>
@@ -182,37 +206,49 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
               { label: "Idle",  color: "#9ca3af", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="2" x2="12" y2="12"/></svg> },
             ].map(({ label, color, icon }) => (
               <button key={label} onClick={() => {
-                if (label === "Write" && mode !== "Write") { setMode("Idle"); setShowWriteModal(true); return; }
+                if (label === "Write" && mode !== "Write") {
+                  cancelRunning();
+                  setMode("Idle");
+                  setShowWriteModal(true);
+                  return;
+                }
+                if (label === "Clean") {
+                  cancelRunning();
+                  setShowCleanModal(true);
+                  return;
+                }
+                cancelRunning();
                 const newMode = mode === label ? "Idle" : label;
                 setMode(newMode);
                 showToast(newMode === "Idle" ? "Currently Idle. Please select a mode." : `Mode set to ${newMode}. Press Start to run.`);
               }} style={{
                 display: "flex", alignItems: "center", gap: 7, padding: "9px 22px", borderRadius: 8,
-                border: mode === label ? "none" : "1px solid #d1d5db",
-                backgroundColor: mode === label ? color : "#fff",
-                color: mode === label ? "#fff" : "#374151",
+                border: (mode === label || (label === "Clean" && mode === "Clean+Scan")) ? "none" : "1px solid #d1d5db",
+                backgroundColor: (mode === label || (label === "Clean" && mode === "Clean+Scan")) ? color : "#fff",
+                color: (mode === label || (label === "Clean" && mode === "Clean+Scan")) ? "#fff" : "#374151",
                 fontWeight: 500, fontSize: 14, cursor: "pointer", outline: "none", transition: "all 0.2s",
               }}>{icon}{label}</button>
             ))}
           </div>
         </div>
 
-        {/* Robot Status */}
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 10 }}>Robot Status</div>
           <div style={{ display: "flex", gap: 10 }}>
             <button onClick={() => {
               if (mode === "Idle") { showToast("Please select a mode before starting."); return; }
               setRobotStatus("Running");
-              if (mode === "Scan")  sendCommand("start scan");
-              if (mode === "Clean") sendCommand("start clean");
-              if (mode === "Write") sendCommand("start write");
+              if (mode === "Scan")       sendCommand("start scan");
+              if (mode === "Clean")      sendCommand("start clean");
+              if (mode === "Clean+Scan") sendCommand("start clean scan");
+              if (mode === "Write")      sendCommand("start write");
             }} style={{
               display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
               padding: "10px 0", width: 120, borderRadius: 8, border: "none",
               backgroundColor: robotStatus === "Running" ? "#22c55e" : "#e5e7eb",
               color: robotStatus === "Running" ? "#fff" : "#6b7280",
-              fontWeight: 600, fontSize: 14, cursor: "pointer", outline: "none", transition: "all 0.2s",
+              fontWeight: 600, fontSize: 14, cursor: "pointer", outline: "none", transition: "background-color 0.2s, color 0.2s",
+              animation: robotStatus === "Running" ? "fadeDown 4s ease-in-out forwards" : "none",
             }}>
               <svg width="11" height="11" viewBox="0 0 11 12" fill="currentColor"><polygon points="0,0 11,6 0,12"/></svg>Start
             </button>
@@ -231,6 +267,7 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             </button>
             <button onClick={() => {
               setRobotStatus("Idle");
+              setMode("Idle");
               sendCommand("stop");
             }} style={{
               display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
@@ -244,7 +281,6 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
           </div>
         </div>
 
-        {/* System Status */}
         <div style={{
           display: "flex", alignItems: "center", gap: 8,
           backgroundColor: "#f9fafb", border: "1px solid #e5e7eb",
@@ -253,23 +289,23 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.8">
             <circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4" strokeLinecap="round"/>
           </svg>
-          <span style={{ fontSize: 13.5, color: "#374151" }}>System Status: Robot: <strong>{robotStatus}</strong></span>
+          <span style={{ fontSize: 13.5, color: "#374151" }}>
+            System Status: Robot: <strong>{robotStatus}</strong>
+            {mode === "Clean+Scan" && <span style={{ marginLeft: 8, fontSize: 12, color: "#22c55e", fontWeight: 500 }}>· Clean + Scan</span>}
+          </span>
         </div>
 
         <div style={{ fontSize: 13, color: "#6b7280" }}>
-          <button
-            onClick={() => {
-              setRobotPos({ x: 0, y: 0 });
-              showToast("Robot position reset to (0, 0).");
-            }}
-            style={{ color: theme.accent, background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: 0, fontWeight: 500 }}
-          >
+          <button onClick={() => {
+            setRobotPos({ x: 0, y: 0 });
+            showToast("Robot position reset to (0, 0).");
+          }} style={{ color: theme.accent, background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: 0, fontWeight: 500 }}>
             Reset Position
           </button>
         </div>
       </div>
 
-      {/* Robot Position */}
+      {/* Robot Position Board */}
       <div>
         <div style={{ borderTop: "1px solid #e5e7eb", marginBottom: 24 }} />
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
@@ -278,10 +314,7 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             {svgPlaced ? (
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 12, color: "#6b7280" }}>{selectedDocName}</span>
-                <button onClick={handleClearSVG} style={{
-                  fontSize: 12, color: "#ef4444", background: "none",
-                  border: "1px solid #fca5a5", borderRadius: 6, padding: "3px 10px", cursor: "pointer",
-                }}>Clear SVG</button>
+                <button onClick={handleClearSVG} style={{ fontSize: 12, color: "#ef4444", background: "none", border: "1px solid #fca5a5", borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}>Clear SVG</button>
               </div>
             ) : (
               <div style={{ fontSize: 13, color: "#6b7280" }}>
@@ -306,18 +339,15 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             position: "relative", cursor: svgPlaced && svgMode === "manual" ? "default" : "crosshair",
             backgroundColor: "#fafafa", transition: "border-color 0.4s ease",
           }}>
-            <img style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            <img style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} alt="" />
+
             {svgPlaced && svgMode === "auto" && uploadedSVG && (
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
                 <div style={{ width: "100%", height: "100%" }} dangerouslySetInnerHTML={{ __html: uploadedSVG.replace(/<svg/, '<svg preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%"') }} />
               </div>
             )}
             {svgPlaced && svgMode === "manual" && uploadedSVG && (
-              <div onMouseDown={handleSVGMouseDown} style={{
-                position: "absolute", left: svgPos.x, top: svgPos.y,
-                width: svgSize.w, height: svgSize.h,
-                cursor: "grab", userSelect: "none", outline: `1.5px dashed ${theme.accent}`,
-              }}>
+              <div onMouseDown={handleSVGMouseDown} style={{ position: "absolute", left: svgPos.x, top: svgPos.y, width: svgSize.w, height: svgSize.h, cursor: "grab", userSelect: "none", outline: `1.5px dashed ${theme.accent}` }}>
                 <div style={{ width: "100%", height: "100%", pointerEvents: "none" }} dangerouslySetInnerHTML={{ __html: uploadedSVG.replace(/<svg/, `<svg style="width:${svgSize.w}px;height:${svgSize.h}px"`) }} />
                 {handleDot("0%", "0%", "nw-resize", "nw")}
                 {handleDot("0%", "100%", "ne-resize", "ne")}
@@ -328,6 +358,7 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
             {!svgPlaced && (
               <img
                 src={robotLogo}
+                alt="robot"
                 style={{
                   position: "absolute",
                   width: 80,
@@ -359,6 +390,38 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
           zIndex: 200, maxWidth: 320, animation: "slideUp 0.25s ease",
         }}>
           <span>💡</span><span>{toast}</span>
+        </div>
+      )}
+
+      {/* Clean Modal */}
+      {showCleanModal && (
+        <div onClick={() => setShowCleanModal(false)} style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300 }}>
+          <div onClick={e => e.stopPropagation()} style={{ backgroundColor: "#fff", borderRadius: 14, padding: "32px", width: 420, boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
+            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 6 }}>Clean Mode</div>
+            <div style={{ color: "#6b7280", fontSize: 13.5, marginBottom: 24 }}>Would you also like to scan while cleaning?</div>
+            <button onClick={() => { setMode("Clean+Scan"); setShowCleanModal(false); showToast("Mode set to Clean + Scan. Press Start to run."); }} style={{ width: "100%", padding: "16px", border: "1px solid #e5e7eb", borderRadius: 10, backgroundColor: "#f9fafb", cursor: "pointer", display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 12, textAlign: "left" }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 20H7L3 16l13-13 4 4-3.5 3.5" stroke="#22c55e"/><path d="M6 17l4-4" stroke="#22c55e"/>
+                  <path d="M4 8V5a1 1 0 011-1h3M4 16v3a1 1 0 001 1h3M16 4h3a1 1 0 011 1v3M16 20h3a1 1 0 001-1v-3" stroke="#3b82f6"/>
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: "#111827", marginBottom: 3 }}>Clean + Scan</div>
+                <div style={{ fontSize: 12, color: "#9ca3af" }}>Clean the board and scan simultaneously</div>
+              </div>
+            </button>
+            <button onClick={() => { setMode("Clean"); setShowCleanModal(false); showToast("Mode set to Clean. Press Start to run."); }} style={{ width: "100%", padding: "16px", border: "1px solid #e5e7eb", borderRadius: 10, backgroundColor: "#f9fafb", cursor: "pointer", display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 24, textAlign: "left" }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 20H7L3 16l13-13 4 4-3.5 3.5"/><path d="M6 17l4-4"/></svg>
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: "#111827", marginBottom: 3 }}>Clean Only</div>
+                <div style={{ fontSize: 12, color: "#9ca3af" }}>Just clean the board without scanning</div>
+              </div>
+            </button>
+            <button onClick={() => setShowCleanModal(false)} style={{ width: "100%", padding: "10px", border: "1px solid #d1d5db", borderRadius: 8, backgroundColor: "#fff", color: "#6b7280", fontSize: 14, cursor: "pointer" }}>Cancel</button>
+          </div>
         </div>
       )}
 
@@ -493,6 +556,10 @@ export default function Control({ robotPos, setRobotPos, docs, currentClass, set
         @keyframes slideUp {
           from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeDown {
+          from { opacity: 1; }
+          to   { opacity: 0.35; }
         }
       `}</style>
     </div>
